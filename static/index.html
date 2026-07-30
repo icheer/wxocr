@@ -398,10 +398,12 @@
     }
 
     .copy-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
+      position: sticky;
+      top: 0;
+      right: 0;
+      float: right;
       padding: 5px 12px;
+      margin-bottom: 8px;
       background: #409EFF;
       color: white;
       border: none;
@@ -410,6 +412,7 @@
       font-size: 12px;
       transition: background 0.2s;
       box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);
+      z-index: 10;
     }
 
     .copy-btn:hover {
