@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 设置工作目录
 WORKDIR /app
 
-# 复制依赖文件并安装（使用优化版 requirements）
-COPY requirements.optimized.txt /app/requirements.txt
+# 复制依赖文件并安装
+COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt \
     && find /usr/local -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true \
     && find /usr/local -type f -name '*.pyc' -delete \
