@@ -18,7 +18,7 @@ def create_app(config_name=None):
     Returns:
         Flask: Flask应用实例
     """
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder='static', static_url_path='/static')
 
     # 加载配置
     config_class = get_config(config_name)
@@ -63,12 +63,13 @@ def create_app(config_name=None):
     app.config['JSON_AS_ASCII'] = config_class.JSON_AS_ASCII
     app.config['JSON_SORT_KEYS'] = config_class.JSON_SORT_KEYS
 
-    # 添加根路由
+    # 添加根路由和静态页面
     @app.route('/')
+    @app.route('/index.html')
     def index():
-        """根路径重定向到健康检查"""
-        from flask import redirect, url_for
-        return redirect(url_for('api.health_check'))
+        """主页 - OCR Web 界面"""
+        from flask import send_from_directory
+        return send_from_directory('static', 'index.html')
 
     logger.info("应用创建完成")
     return app

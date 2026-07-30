@@ -4,6 +4,7 @@ API路由定义
 from flask import Blueprint, request, jsonify
 from api.validators import validate_file_upload, OcrRequestParams, ValidationError, is_pdf, is_image
 from api.error_handlers import error_response, RateLimitError
+from api.auth import require_api_key
 from utils.logger import get_logger
 from pathlib import Path
 import time
@@ -27,6 +28,7 @@ def health_check():
 
 
 @api_bp.route('/ocr', methods=['POST'])
+@require_api_key
 @validate_file_upload
 def ocr():
     """

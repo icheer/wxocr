@@ -28,9 +28,9 @@ COPY api /app/api
 COPY services /app/services
 COPY utils /app/utils
 COPY config /app/config
+COPY static /app/static
 COPY app.py /app/app.py
 COPY main.py /app/main.py
-COPY templates /app/templates
 
 # 创建必要的目录
 RUN mkdir -p /app/temp /app/logs
