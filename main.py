@@ -1,3 +1,13 @@
+"""
+原有的简单OCR接口（兼容性保留）
+
+注意：这是旧版接口，仅支持基本的图片OCR功能。
+新功能（PDF处理、水印去除等）请使用 app.py 中的新版API。
+
+启动方式：
+    python main.py  # 旧版接口（端口5000，路由 /ocr）
+    python app.py   # 新版接口（端口5000，路由 /api/v1/ocr）
+"""
 import wcocr
 import os
 import uuid

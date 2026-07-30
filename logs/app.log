@@ -1,0 +1,14 @@
+2026-07-30 15:09:06,434 - wxocr - INFO - ============================================================
+2026-07-30 15:09:06,435 - wxocr - INFO - 启动 WeChat OCR 服务
+2026-07-30 15:09:06,436 - wxocr - INFO - ============================================================
+2026-07-30 15:09:06,437 - wxocr - INFO - 配置摘要: {'host': '0.0.0.0', 'port': 5000, 'debug': False, 'max_file_size_mb': 20, 'max_concurrent_tasks': 3, 'temp_dir': 'D:\\Project-other\\_ai-apps\\wxocr\\temp', 'log_level': 'INFO'}
+2026-07-30 15:09:06,439 - wxocr - ERROR - 微信OCR初始化失败: No module named 'wcocr'
+2026-07-30 15:16:33,637 - wxocr - INFO - ============================================================
+2026-07-30 15:16:33,638 - wxocr - INFO - 启动 WeChat OCR 服务
+2026-07-30 15:16:33,640 - wxocr - INFO - ============================================================
+2026-07-30 15:16:33,641 - wxocr - INFO - 配置摘要: {'host': '0.0.0.0', 'port': 5000, 'debug': False, 'max_file_size_mb': 20, 'max_concurrent_tasks': 3, 'temp_dir': 'D:\\Project-other\\_ai-apps\\wxocr\\temp', 'log_level': 'INFO'}
+2026-07-30 15:16:33,643 - wxocr - WARNING - 微信OCR初始化失败（进入测试模式）: No module named 'wcocr'
+2026-07-30 15:16:33,645 - wxocr - WARNING - ⚠️  服务将以测试模式运行，OCR接口将返回模拟数据
+2026-07-30 15:16:33,647 - wxocr - INFO - API蓝图注册成功
+2026-07-30 15:16:33,648 - wxocr - INFO - 错误处理器注册成功
+2026-07-30 15:16:33,649 - wxocr - INFO - 应用创建完成
