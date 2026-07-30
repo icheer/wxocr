@@ -10,6 +10,7 @@ __pycache__
 temp/*
 !temp/.gitkeep
 logs/*
+logs/app.log
 !logs/.gitkeep
 
 # IDE

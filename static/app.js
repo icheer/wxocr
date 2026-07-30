@@ -231,8 +231,9 @@ createApp({
 
         const result = await response.json();
 
-        if (result.code !== 200) {
-          throw new Error(result.message || '识别失败');
+        // 检查响应格式：后端返回 { "success": true/false, "data": {...} }
+        if (!result.success) {
+          throw new Error(result.error?.message || result.message || '识别失败');
         }
 
         // 处理响应数据
