@@ -16,6 +16,18 @@ from config.settings import Config
 logger = get_logger(__name__)
 
 
+class PageInfo:
+    """单页信息"""
+    def __init__(self, page_number: int):
+        self.page_number = page_number
+        self.width = 0
+        self.height = 0
+        self.text = ""  # 提取的文本或OCR文本
+        self.image_path = ""  # 渲染的图片路径（如果有）
+        self.strategy = ""  # 该页使用的策略
+        self.ocr_response = []  # OCR详细结果
+
+
 class PdfProcessResult:
     """PDF处理结果"""
     def __init__(self):
@@ -23,6 +35,7 @@ class PdfProcessResult:
         self.text = ""  # 提取到的文本
         self.images = []  # 需要OCR的图片路径列表
         self.page_count = 0
+        self.pages = []  # List[PageInfo] 每页的详细信息
         self.metadata = {}
 
 
@@ -250,16 +263,23 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
         all_text_parts = []
         all_images = []
         strategies = []
+        page_infos = []  # 新增：存储每页信息
 
         # 逐页处理
         for page_num in range(result.page_count):
             page = doc.load_page(page_num)
             logger.debug(f"处理第 {page_num + 1}/{result.page_count} 页")
 
+            # 创建页面信息对象
+            page_info = PageInfo(page_num + 1)
+            page_info.width = int(page.rect.width)
+            page_info.height = int(page.rect.height)
+
             # 分析页面结构
             page_analysis = analyze_page_structure(page)
             strategy = page_analysis['strategy']
             strategies.append(strategy)
+            page_info.strategy = strategy
 
             logger.info(f"第{page_num + 1}页策略: {strategy}, "
                        f"文本长度: {page_analysis['text_length']}, "
@@ -270,23 +290,32 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
             if strategy == 'text_extraction':
                 # 直接使用提取的文本
                 all_text_parts.append(page_analysis['text'])
+                page_info.text = page_analysis['text']
 
             elif strategy == 'full_page_render':
                 # 整页渲染
                 render_path = output_dir / f"page{page_num + 1}_full.png"
                 render_full_page(page, str(render_path))
                 all_images.append(str(render_path))
+                page_info.image_path = str(render_path)
 
             elif strategy == 'extract_images':
                 # 提取图片对象
                 images = extract_images_from_page(page, doc, output_dir, page_num + 1)
                 all_images.extend(images)
+                if images:
+                    page_info.image_path = images[0]  # 记录第一张图片
 
             elif strategy == 'mixed':
                 # 混合模式：文本 + 图片OCR
                 all_text_parts.append(page_analysis['text'])
+                page_info.text = page_analysis['text']
                 images = extract_images_from_page(page, doc, output_dir, page_num + 1)
                 all_images.extend(images)
+                if images:
+                    page_info.image_path = images[0]
+
+            page_infos.append(page_info)
 
         # 确定最终策略（基于所有页面的主要策略）
         if all_images and all_text_parts:
@@ -304,6 +333,7 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
 
         result.text = '\n\n'.join(all_text_parts) if all_text_parts else ""
         result.images = all_images
+        result.pages = page_infos  # 保存每页信息
 
         result.metadata = {
             'strategies_per_page': strategies,

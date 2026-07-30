@@ -78,6 +78,27 @@ def ocr():
                 'success': True,
                 'data': {
                     'text': mock_text,
+                    'width': 800,
+                    'height': 600,
+                    'imgpath': 'temp/test_mode.png',
+                    'ocr_response': [
+                        {
+                            'text': '【模拟图片识别结果】',
+                            'rate': 0.95,
+                            'left': 10.0,
+                            'top': 10.0,
+                            'right': 300.0,
+                            'bottom': 40.0
+                        },
+                        {
+                            'text': '这是图片中的示例文字',
+                            'rate': 0.93,
+                            'left': 10.0,
+                            'top': 50.0,
+                            'right': 280.0,
+                            'bottom': 80.0
+                        }
+                    ],
                     'metadata': {
                         'file_type': file_type,
                         'page_count': page_count,
@@ -208,6 +229,16 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
                 }
             }
 
+            # 如果是 PDF 文件，使用按页组织的数据
+            if 'pages' in metadata:
+                result['data']['pages'] = metadata['pages']
+            else:
+                # 图片文件，使用单页格式
+                result['data']['width'] = metadata.get('width', 0)
+                result['data']['height'] = metadata.get('height', 0)
+                result['data']['imgpath'] = metadata.get('imgpath', '')
+                result['data']['ocr_response'] = metadata.get('ocr_response', [])
+
             return result
 
     finally:
@@ -230,51 +261,69 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
     """
     from services.pdf_processor import process_pdf
     from services.image_processor import preprocess_image
-    from services.ocr_service import ocr_images_batch, combine_ocr_results
+    from services.ocr_service import ocr_image
 
     logger.info("开始处理PDF文件")
 
     # 处理PDF
     pdf_result = process_pdf(pdf_path)
 
-    # 收集所有需要OCR的图片
-    images_to_ocr = pdf_result.images.copy()
+    # 为每页执行 OCR（如果需要）
+    for page_info in pdf_result.pages:
+        if page_info.image_path:
+            # 该页需要 OCR
+            img_path = page_info.image_path
 
-    # 如果需要预处理
-    if params.remove_watermark or params.deskew:
-        logger.info("对提取的图片进行预处理")
-        preprocessed_images = []
+            # 预处理
+            if params.remove_watermark or params.deskew:
+                logger.info(f"对第 {page_info.page_number} 页图片进行预处理")
+                processed_path = f"{img_path}_processed.png"
+                processed_image, preprocess_stats = preprocess_image(
+                    img_path,
+                    processed_path,
+                    remove_watermark=params.remove_watermark,
+                    watermark_color=params.watermark_color,
+                    watermark_tolerance=params.watermark_tolerance,
+                    deskew=params.deskew
+                )
+                temp_files.append(Path(processed_path))
+                ocr_input = processed_path
+            else:
+                ocr_input = img_path
 
-        for img_path in images_to_ocr:
-            output_path = f"{img_path}_processed.png"
-            preprocessed_path, preprocess_stats = preprocess_image(
-                img_path,
-                output_path,
-                remove_watermark=params.remove_watermark,
-                watermark_color=params.watermark_color,
-                watermark_tolerance=params.watermark_tolerance,
-                deskew=params.deskew
-            )
-            preprocessed_images.append(preprocessed_path)
-            temp_files.append(Path(preprocessed_path))
+            # OCR 识别
+            logger.info(f"对第 {page_info.page_number} 页执行 OCR")
+            ocr_result = ocr_image(ocr_input)
 
-        images_to_ocr = preprocessed_images
+            # 将 OCR 结果存入页面信息
+            if ocr_result.success:
+                # 如果该页已有提取的文本，追加 OCR 结果
+                if page_info.text:
+                    page_info.text += "\n\n" + ocr_result.text
+                else:
+                    page_info.text = ocr_result.text
 
-    # OCR识别
-    if images_to_ocr:
-        logger.info(f"对 {len(images_to_ocr)} 张图片执行OCR")
-        ocr_results = ocr_images_batch(images_to_ocr)
-        ocr_text = combine_ocr_results(ocr_results)
-    else:
-        ocr_text = ""
+                page_info.ocr_response = ocr_result.details
+                # 如果 OCR 结果中有宽高，使用 OCR 的
+                if ocr_result.width > 0:
+                    page_info.width = ocr_result.width
+                    page_info.height = ocr_result.height
 
-    # 合并文本
-    if pdf_result.text and ocr_text:
-        final_text = pdf_result.text + "\n\n" + ocr_text
-    elif pdf_result.text:
-        final_text = pdf_result.text
-    else:
-        final_text = ocr_text
+    # 合并所有页的文本
+    all_text_parts = [p.text for p in pdf_result.pages if p.text]
+    final_text = '\n\n'.join(all_text_parts) if all_text_parts else ""
+
+    # 构建按页组织的数据
+    pages_data = []
+    for page_info in pdf_result.pages:
+        pages_data.append({
+            'page_number': page_info.page_number,
+            'width': page_info.width,
+            'height': page_info.height,
+            'text': page_info.text,
+            'strategy': page_info.strategy,
+            'ocr_response': page_info.ocr_response
+        })
 
     # 元数据
     metadata = {
@@ -283,12 +332,15 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
         'preprocessed': {
             'watermark_removed': params.remove_watermark,
             'deskewed': params.deskew
-        }
+        },
+        'pages': pages_data
     }
 
     # 将PDF提取的图片加入清理列表
     for img_path in pdf_result.images:
         temp_files.append(Path(img_path))
+
+    return final_text, metadata
 
     return final_text, metadata
 
@@ -338,7 +390,12 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
         'preprocessed': {
             'watermark_removed': params.remove_watermark,
             'deskewed': params.deskew
-        }
+        },
+        # 添加详细信息
+        'width': ocr_result.width,
+        'height': ocr_result.height,
+        'imgpath': ocr_result.imgpath,
+        'ocr_response': ocr_result.details
     }
 
     return ocr_result.text, metadata
