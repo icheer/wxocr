@@ -1,0 +1,48 @@
+# Git
+.git
+.github
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+.pytest_cache
+
+# 虚拟环境
+.venv
+venv/
+env/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# 文档和测试
+docs/
+*.md
+!README.md
+
+# 临时文件
+temp/*
+logs/*
+*.log
+
+# 备份文件
+*.backup
+*.backup.*
+Dockerfile.backup
+requirements.backup.txt
+
+# 优化版文件（因为已经替换）
+Dockerfile.optimized
+requirements.optimized.txt
+
+# 系统文件
+.DS_Store
+Thumbs.db

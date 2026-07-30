@@ -1,4 +1,4 @@
-# WeChat OCR 服务依赖包 (优化版)
+# WeChat OCR 服务依赖包
 
 # Web框架
 flask>=3.0.0
@@ -6,8 +6,8 @@ flask>=3.0.0
 # PDF处理
 PyMuPDF>=1.23.0
 
-# 图像处理 - 使用 headless 版本（无 GUI 支持，节省 ~200-300MB）
-opencv-python-headless>=4.8.0
+# 图像处理
+opencv-python>=4.8.0
 numpy>=1.24.0
 Pillow>=10.0.0
 
