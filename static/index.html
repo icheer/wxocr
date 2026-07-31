@@ -80,6 +80,24 @@
       border-color: #409EFF;
     }
 
+    .view-logs-btn {
+      padding: 8px 16px;
+      background: #f4f4f5;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #606266;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+
+    .view-logs-btn:hover {
+      background: #ecf5ff;
+      color: #409EFF;
+      border-color: #c6e2ff;
+    }
+
     .main-container {
       flex: 1;
       display: flex;
@@ -658,6 +676,136 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* 日志弹窗样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      flex-direction: column;
+      max-height: 80vh;
+    }
+
+    .logs-modal {
+      width: 90%;
+      max-width: 900px;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid #e4e7ed;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+      font-size: 18px;
+      color: #303133;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #909399;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      line-height: 1;
+      transition: color 0.3s;
+    }
+
+    .modal-close:hover {
+      color: #303133;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    .logs-content {
+      background: #f5f7fa;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #303133;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin: 0;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+
+    .logs-loading,
+    .logs-error {
+      text-align: center;
+      padding: 40px;
+      color: #909399;
+      font-size: 14px;
+    }
+
+    .logs-error {
+      color: #f56c6c;
+    }
+
+    .modal-footer {
+      padding: 20px;
+      border-top: 1px solid #e4e7ed;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-primary {
+      background: #409EFF;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #66b1ff;
+    }
+
+    .btn-secondary {
+      background: #f4f4f5;
+      color: #606266;
+      border: 1px solid #dcdfe6;
+    }
+
+    .btn-secondary:hover {
+      background: #ecf5ff;
+      color: #409EFF;
+      border-color: #c6e2ff;
+    }
   </style>
 </head>
 
@@ -668,6 +816,7 @@
       <div class="api-key-container">
         <label class="api-key-label">API Key:</label>
         <input type="password" class="api-key-input" v-model="apiKey" @input="saveApiKey" placeholder="可选，如服务端配置">
+        <button class="view-logs-btn" @click="viewLogs" title="查看服务端日志">📋 日志</button>
       </div>
     </div>
     <div class="main-container">
@@ -804,6 +953,25 @@
       </div>
     </div>
     <div v-if="loading" class="loading">{{ loadingText }}</div>
+
+    <!-- 日志查看弹窗 -->
+    <div v-if="showLogsModal" class="modal-overlay" @click="showLogsModal = false">
+      <div class="modal-content logs-modal" @click.stop>
+        <div class="modal-header">
+          <h3>服务端日志（最新100行）</h3>
+          <button class="modal-close" @click="showLogsModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="logsLoading" class="logs-loading">加载中...</div>
+          <div v-else-if="logsError" class="logs-error">{{ logsError }}</div>
+          <pre v-else class="logs-content">{{ logsContent }}</pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showLogsModal = false">关闭</button>
+          <button class="btn btn-primary" @click="refreshLogs">刷新</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
   <script src="./app.js"></script>

@@ -22,6 +22,11 @@ createApp({
       currentFile: null,
       filePath: '',  // 保存临时文件路径（imgpath 或 pdfpath）
       isEmbedding: false,  // 正在嵌入PDF的标记
+      // 日志查看相关
+      showLogsModal: false,
+      logsContent: '',
+      logsLoading: false,
+      logsError: '',
       // 高级参数
       params: {
         removeWatermark: false,
@@ -446,6 +451,69 @@ createApp({
           console.error('复制失败:', error);
         }
         document.body.removeChild(textArea);
+      }
+    },
+
+    async viewLogs() {
+      // 检查是否配置了 API Key
+      if (!this.apiKey) {
+        this.showToast('请先配置 API Key', 'error');
+        return;
+      }
+
+      this.showLogsModal = true;
+      this.logsLoading = true;
+      this.logsError = '';
+      this.logsContent = '';
+
+      try {
+        const response = await fetch('/api/logs', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          this.logsContent = result.data.logs.join('\n');
+        } else {
+          this.logsError = result.error?.message || '获取日志失败';
+        }
+      } catch (error) {
+        console.error('获取日志失败:', error);
+        this.logsError = `网络错误: ${error.message}`;
+      } finally {
+        this.logsLoading = false;
+      }
+    },
+
+    async refreshLogs() {
+      this.logsLoading = true;
+      this.logsError = '';
+
+      try {
+        const response = await fetch('/api/logs', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`
+          }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          this.logsContent = result.data.logs.join('\n');
+          this.showToast('日志已刷新', 'success');
+        } else {
+          this.logsError = result.error?.message || '获取日志失败';
+        }
+      } catch (error) {
+        console.error('刷新日志失败:', error);
+        this.logsError = `网络错误: ${error.message}`;
+      } finally {
+        this.logsLoading = false;
       }
     },
 

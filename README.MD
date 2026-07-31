@@ -274,6 +274,7 @@ print(f'生成的 PDF: {embedded_pdf}')
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/ocr` | OCR 识别 |
 | POST | `/api/embed` | 嵌入文本生成 PDF |
+| GET | `/api/logs` | 查看服务端日志（需认证） |
 
 ### 认证
 
@@ -308,6 +309,46 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `file_type` | String | ✅ | 文件类型（image/pdf） |
 | `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
 | `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
+
+### Logs 接口说明
+
+**端点**: `GET /api/logs`
+
+**认证**: 必须配置 `API_KEY` 环境变量并携带 Bearer Token
+
+**功能**: 获取服务端日志最新100行（用于调试和监控）
+
+**请求示例**:
+```bash
+curl -X GET http://localhost:5000/api/logs \
+  -H "Authorization: Bearer your_secret_key"
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "data": {
+    "logs": [
+      "2026-07-30 12:00:00 - INFO - 收到OCR请求",
+      "2026-07-30 12:00:01 - INFO - OCR识别完成"
+    ],
+    "total_lines": 100,
+    "log_file": "/path/to/logs/app.log"
+  }
+}
+```
+
+**错误响应**（未配置API_KEY）:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "LOGS_DISABLED",
+    "message": "日志查看功能未启用（需要配置API_KEY环境变量）"
+  }
+}
+```
 
 ### 响应格式
 

@@ -579,3 +579,51 @@ def embed_text_to_pdf():
     except Exception as e:
         logger.error(f"嵌入文本失败: {str(e)}", exc_info=True)
         return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(e)}')
+
+
+@api_bp.route('/logs', methods=['GET'])
+@require_api_key
+def get_logs():
+    """
+    获取服务端日志（需要Bearer认证）
+
+    仅当配置了API_KEY环境变量时此接口可用
+
+    Returns:
+        JSON响应，包含最新100行日志
+    """
+    from config.settings import Config
+
+    # 检查是否配置了API_KEY
+    if not os.getenv('API_KEY'):
+        return error_response(403, 'LOGS_DISABLED', '日志查看功能未启用（需要配置API_KEY环境变量）')
+
+    try:
+        log_file_path = Path(Config.LOG_FILE)
+
+        if not log_file_path.exists():
+            return jsonify({
+                'success': True,
+                'data': {
+                    'logs': [],
+                    'message': '日志文件不存在'
+                }
+            })
+
+        # 读取最后100行
+        with open(log_file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            recent_lines = lines[-100:] if len(lines) > 100 else lines
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'logs': [line.rstrip('\n') for line in recent_lines],
+                'total_lines': len(recent_lines),
+                'log_file': str(log_file_path)
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"读取日志失败: {str(e)}", exc_info=True)
+        return error_response(500, 'LOG_READ_FAILED', f'读取日志失败: {str(e)}')
