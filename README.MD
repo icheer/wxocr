@@ -91,7 +91,7 @@ docker run -d -p 5000:5000 --name wxocr icheerme/wxocr
 # 浏览器打开: http://localhost:5000
 
 # 4. 测试 API
-curl http://localhost:5000/api/v1/health
+curl http://localhost:5000/api/health
 ```
 
 ### 方式二：本地运行
@@ -109,7 +109,7 @@ python app.py
 
 # 4. 访问服务
 # Web 界面: http://localhost:5000
-# API 端点: http://localhost:5000/api/v1/ocr
+# API 端点: http://localhost:5000/api/ocr
 ```
 
 ### Web 界面使用
@@ -143,21 +143,21 @@ python app.py
 #### 基本图片识别
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@image.png"
 ```
 
 #### PDF 文档识别
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf"
 ```
 
 #### 去除水印
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@watermarked.pdf" \
   -F "remove_watermark=true" \
   -F "watermark_color=#ffd9d9"
@@ -166,7 +166,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 #### 纠正倾斜
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@skewed.jpg" \
   -F "deskew=true"
 ```
@@ -178,7 +178,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 export API_KEY=your_secret_key
 
 # 启动服务后，需要在请求中携带 Bearer Token
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -H "Authorization: Bearer your_secret_key" \
   -F "file=@image.png"
 ```
@@ -186,7 +186,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 #### 嵌入文本生成 PDF
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/embed \
+curl -X POST http://localhost:5000/api/embed \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your_secret_key" \
   -d '{
@@ -212,7 +212,7 @@ curl -X POST http://localhost:5000/api/v1/embed \
 import requests
 
 def ocr_file(file_path, api_key=None):
-    url = 'http://localhost:5000/api/v1/ocr'
+    url = 'http://localhost:5000/api/ocr'
     headers = {}
     if api_key:
         headers['Authorization'] = f'Bearer {api_key}'
@@ -228,7 +228,7 @@ def ocr_file(file_path, api_key=None):
 
 def embed_text_to_pdf(file_path, file_type, ocr_data, api_key=None):
     """将编辑后的文本嵌入到文件中生成 PDF"""
-    url = 'http://localhost:5000/api/v1/embed'
+    url = 'http://localhost:5000/api/embed'
     headers = {'Content-Type': 'application/json'}
     if api_key:
         headers['Authorization'] = f'Bearer {api_key}'
@@ -271,9 +271,9 @@ print(f'生成的 PDF: {embedded_pdf}')
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/` | Web 界面主页 |
-| GET | `/api/v1/health` | 健康检查 |
-| POST | `/api/v1/ocr` | OCR 识别 |
-| POST | `/api/v1/embed` | 嵌入文本生成 PDF |
+| GET | `/api/health` | 健康检查 |
+| POST | `/api/ocr` | OCR 识别 |
+| POST | `/api/embed` | 嵌入文本生成 PDF |
 
 ### 认证
 

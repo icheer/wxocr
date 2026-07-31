@@ -51,7 +51,7 @@ API蓝图注册成功
 
 打开浏览器访问：
 ```
-http://localhost:5000/api/v1/health
+http://localhost:5000/api/health
 ```
 
 应该返回：
@@ -75,14 +75,14 @@ echo "test image" > test.txt
 #### 测试基本上传
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr ^
+curl -X POST http://localhost:5000/api/ocr ^
   -F "file=@test.txt"
 ```
 
 #### 测试完整参数
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr ^
+curl -X POST http://localhost:5000/api/ocr ^
   -F "file=@test.txt" ^
   -F "remove_watermark=true" ^
   -F "watermark_color=#ffd9d9" ^
@@ -123,7 +123,7 @@ curl -X POST http://localhost:5000/api/v1/ocr ^
 "test content" | Out-File -FilePath test.txt -Encoding utf8
 
 # 发送请求
-$response = Invoke-WebRequest -Uri http://localhost:5000/api/v1/ocr `
+$response = Invoke-WebRequest -Uri http://localhost:5000/api/ocr `
   -Method Post `
   -Form @{
     file = Get-Item -Path test.txt
@@ -143,7 +143,7 @@ $response.Content | ConvertFrom-Json | ConvertTo-Json -Depth 10
 import requests
 
 # 测试健康检查
-response = requests.get('http://localhost:5000/api/v1/health')
+response = requests.get('http://localhost:5000/api/health')
 print("健康检查:", response.json())
 
 # 创建测试文件
@@ -153,7 +153,7 @@ with open('test_image.png', 'wb') as f:
 # 测试OCR接口
 with open('test_image.png', 'rb') as f:
     response = requests.post(
-        'http://localhost:5000/api/v1/ocr',
+        'http://localhost:5000/api/ocr',
         files={'file': f},
         data={
             'remove_watermark': 'true',
@@ -184,7 +184,7 @@ python test_api_client.py
 # 创建21MB的测试文件
 fsutil file createnew large_file.bin 22020096
 
-curl -X POST http://localhost:5000/api/v1/ocr ^
+curl -X POST http://localhost:5000/api/ocr ^
   -F "file=@large_file.bin"
 ```
 
@@ -202,7 +202,7 @@ curl -X POST http://localhost:5000/api/v1/ocr ^
 ### 2. 测试无效参数
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr ^
+curl -X POST http://localhost:5000/api/ocr ^
   -F "file=@test.txt" ^
   -F "watermark_tolerance=999"
 ```
@@ -221,7 +221,7 @@ curl -X POST http://localhost:5000/api/v1/ocr ^
 ### 3. 测试不支持的HTTP方法
 
 ```bash
-curl -X GET http://localhost:5000/api/v1/ocr
+curl -X GET http://localhost:5000/api/ocr
 ```
 
 **预期响应**：
@@ -238,7 +238,7 @@ curl -X GET http://localhost:5000/api/v1/ocr
 ### 4. 测试缺少文件
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr
+curl -X POST http://localhost:5000/api/ocr
 ```
 
 **预期响应**：
@@ -343,13 +343,13 @@ notepad logs\app.log
 python app.py
 
 # 2. 新建终端窗口，测试健康检查
-curl http://localhost:5000/api/v1/health
+curl http://localhost:5000/api/health
 
 # 3. 创建测试文件
 echo test > test.txt
 
 # 4. 测试OCR接口
-curl -X POST http://localhost:5000/api/v1/ocr -F "file=@test.txt"
+curl -X POST http://localhost:5000/api/ocr -F "file=@test.txt"
 
 # 5. 查看详细日志
 # 回到服务运行的终端窗口查看

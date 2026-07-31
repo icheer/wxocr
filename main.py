@@ -6,7 +6,7 @@
 
 启动方式：
     python main.py  # 旧版接口（端口5000，路由 /ocr）
-    python app.py   # 新版接口（端口5000，路由 /api/v1/ocr）
+    python app.py   # 新版接口（端口5000，路由 /api/ocr）
 """
 import wcocr
 import os

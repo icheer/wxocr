@@ -91,8 +91,8 @@ wxocr/
 
 **功能**:
 - ✅ Flask Blueprint架构
-- ✅ `/api/v1/health` - 健康检查接口
-- ✅ `/api/v1/ocr` - OCR接口（POST）
+- ✅ `/api/health` - 健康检查接口
+- ✅ `/api/ocr` - OCR接口（POST）
 - ✅ 请求/响应日志记录
 - ✅ 占位响应（Phase 2实现实际OCR逻辑）
 
@@ -191,7 +191,7 @@ Phase 2 将实现核心功能：
 python app.py
 ```
 
-访问: `http://localhost:5000/api/v1/health`
+访问: `http://localhost:5000/api/health`
 
 ### 运行测试
 ```bash

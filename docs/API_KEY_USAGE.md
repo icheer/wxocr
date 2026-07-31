@@ -2,7 +2,7 @@
 
 ## 概述
 
-本服务支持可选的 API Key 认证机制。当设置了 `API_KEY` 环境变量时，所有对 `/api/v1/ocr` 接口的请求都需要携带正确的 Bearer token。
+本服务支持可选的 API Key 认证机制。当设置了 `API_KEY` 环境变量时，所有对 `/api/ocr` 接口的请求都需要携带正确的 Bearer token。
 
 ## 配置方式
 
@@ -65,7 +65,7 @@ services:
 **curl 示例：**
 ```bash
 # 携带 Bearer token
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -H "Authorization: Bearer your-secret-key-here" \
   -F "file=@/path/to/image.jpg" \
   -F "remove_watermark=false" \
@@ -76,7 +76,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 ```python
 import requests
 
-url = "http://localhost:5000/api/v1/ocr"
+url = "http://localhost:5000/api/ocr"
 headers = {
     "Authorization": "Bearer your-secret-key-here"
 }
@@ -98,7 +98,7 @@ const formData = new FormData();
 formData.append('file', fileInput.files[0]);
 formData.append('remove_watermark', 'false');
 
-const response = await fetch('/api/v1/ocr', {
+const response = await fetch('/api/ocr', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer your-secret-key-here'
@@ -184,4 +184,4 @@ A: 服务端：通过环境变量 `API_KEY` 设置，重启后需要重新设置
 Web 界面：保存在浏览器的 localStorage 中，清除浏览器数据会丢失
 
 ### Q: 健康检查接口需要认证吗？
-A: 不需要。`/api/v1/health` 接口不需要认证，可以直接访问。
+A: 不需要。`/api/health` 接口不需要认证，可以直接访问。

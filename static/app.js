@@ -242,7 +242,7 @@ createApp({
           headers['Authorization'] = `Bearer ${this.apiKey}`;
         }
 
-        const response = await fetch('/api/v1/ocr', {
+        const response = await fetch('/api/ocr', {
           method: 'POST',
           headers: headers,
           body: formData
@@ -395,7 +395,7 @@ createApp({
           headers['Authorization'] = `Bearer ${this.apiKey}`;
         }
 
-        const response = await fetch('/api/v1/embed', {
+        const response = await fetch('/api/embed', {
           method: 'POST',
           headers: headers,
           body: JSON.stringify(requestData)

@@ -23,11 +23,11 @@ WeChat OCR API 提供基于微信 OCR 引擎的文字识别服务，支持图片
 
 检查服务是否正常运行。
 
-**端点**: `GET /api/v1/health`
+**端点**: `GET /api/health`
 
 **请求示例**:
 ```bash
-curl http://localhost:5000/api/v1/health
+curl http://localhost:5000/api/health
 ```
 
 **响应示例**:
@@ -48,7 +48,7 @@ curl http://localhost:5000/api/v1/health
 
 对图片或 PDF 文件执行 OCR 识别。
 
-**端点**: `POST /api/v1/ocr`
+**端点**: `POST /api/ocr`
 
 **Content-Type**: `multipart/form-data`
 
@@ -83,19 +83,19 @@ curl http://localhost:5000/api/v1/health
 
 **基本请求（仅图片）**:
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@image.png"
 ```
 
 **PDF文件（自动智能处理）**:
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf"
 ```
 
 **去除水印（指定颜色）**:
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@watermarked.pdf" \
   -F "remove_watermark=true" \
   -F "watermark_color=#ffd9d9" \
@@ -104,14 +104,14 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 
 **图片纠偏**:
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@skewed.jpg" \
   -F "deskew=true"
 ```
 
 **完整参数**:
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@complex.pdf" \
   -F "remove_watermark=true" \
   -F "watermark_color=#ffd9d9" \
@@ -288,7 +288,7 @@ def ocr_file(file_path, remove_watermark=False, deskew=False):
     Returns:
         dict: API响应
     """
-    url = 'http://localhost:5000/api/v1/ocr'
+    url = 'http://localhost:5000/api/ocr'
     
     with open(file_path, 'rb') as f:
         files = {'file': f}
@@ -334,7 +334,7 @@ async function ocrFile(filePath, options = {}) {
   
   try {
     const response = await axios.post(
-      'http://localhost:5000/api/v1/ocr',
+      'http://localhost:5000/api/ocr',
       form,
       { headers: form.getHeaders() }
     );
@@ -365,11 +365,11 @@ async function ocrFile(filePath, options = {}) {
 
 ```bash
 # 基本使用
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf"
 
 # 带所有参数
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf" \
   -F "remove_watermark=true" \
   -F "watermark_color=#ffd9d9" \
@@ -378,12 +378,12 @@ curl -X POST http://localhost:5000/api/v1/ocr \
   -F "output_format=plain"
 
 # 保存结果到文件
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf" \
   -o result.json
 
 # 提取纯文本
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf" \
   | jq -r '.data.text'
 ```
@@ -466,7 +466,7 @@ def ocr_with_retry(file_path, max_retries=3):
     for attempt in range(max_retries):
         try:
             response = requests.post(
-                'http://localhost:5000/api/v1/ocr',
+                'http://localhost:5000/api/ocr',
                 files={'file': open(file_path, 'rb')},
                 timeout=60
             )
@@ -497,7 +497,7 @@ def ocr_batch(file_paths, max_workers=3):
     """批量处理文件"""
     def process_file(path):
         response = requests.post(
-            'http://localhost:5000/api/v1/ocr',
+            'http://localhost:5000/api/ocr',
             files={'file': open(path, 'rb')}
         )
         return path, response.json()

@@ -209,7 +209,7 @@ export CLEANUP_TEMP_FILES=true
 
 ### 1. 纯文本PDF（直接提取）
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@document.pdf"
 ```
 
@@ -217,7 +217,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 
 ### 2. 扫描PDF（整页渲染OCR）
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@scanned.pdf"
 ```
 
@@ -225,7 +225,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 
 ### 3. 带水印的PDF（去除水印）
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@watermarked.pdf" \
   -F "remove_watermark=true" \
   -F "watermark_color=#ffd9d9" \
@@ -236,7 +236,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 
 ### 4. 倾斜的扫描件（纠偏）
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@skewed.jpg" \
   -F "deskew=true"
 ```
@@ -245,7 +245,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
 
 ### 5. 完整流程（水印+纠偏）
 ```bash
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@complex.pdf" \
   -F "remove_watermark=true" \
   -F "deskew=true"
@@ -311,7 +311,7 @@ docker run -d -p 5000:5000 --name wxocr-test wxocr:phase2
 # - 倾斜的扫描件
 
 # 4. 执行测试
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@test.pdf"
 
 # 5. 查看日志

@@ -90,7 +90,7 @@ wxocr/
 
 ```
 [客户端] 
-    ↓ POST /api/v1/ocr
+    ↓ POST /api/ocr
 [API路由层] 
     ↓ 参数验证、文件保存
 [任务管理器] 
@@ -126,11 +126,11 @@ wxocr/
 
 ### 统一OCR接口
 
-**端点**: `POST /api/v1/ocr`
+**端点**: `POST /api/ocr`
 
 **请求**:
 ```http
-POST /api/v1/ocr
+POST /api/ocr
 Content-Type: multipart/form-data
 
 file: <binary>                          # 图片或PDF文件
@@ -205,7 +205,7 @@ output_format: "plain"                  # 输出格式：plain/structured
 - [ ] 添加请求日志记录
 
 **交付物**:
-- `/api/v1/ocr` 接口骨架
+- `/api/ocr` 接口骨架
 - 完整的错误处理机制
 
 ---
@@ -394,7 +394,7 @@ class TaskManager:
 # 使用示例
 task_manager = TaskManager(max_concurrent=3)
 
-@app.route('/api/v1/ocr', methods=['POST'])
+@app.route('/api/ocr', methods=['POST'])
 def ocr_endpoint():
     if not task_manager.can_accept_task():
         return error_response(429, "RATE_LIMIT_EXCEEDED", ...)
@@ -661,7 +661,7 @@ class Config:
 import requests
 
 def ocr_pdf(file_path, remove_watermark=False, deskew=False):
-    url = 'http://localhost:5000/api/v1/ocr'
+    url = 'http://localhost:5000/api/ocr'
     
     with open(file_path, 'rb') as f:
         files = {'file': f}

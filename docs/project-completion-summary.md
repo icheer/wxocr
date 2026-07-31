@@ -178,10 +178,10 @@ docker run -d \
   wxocr:latest
 
 # 3. 测试服务
-curl http://localhost:5000/api/v1/health
+curl http://localhost:5000/api/health
 
 # 4. 测试 OCR
-curl -X POST http://localhost:5000/api/v1/ocr \
+curl -X POST http://localhost:5000/api/ocr \
   -F "file=@test.pdf"
 ```
 
@@ -329,7 +329,7 @@ python app.py
 python test_integration.py
 
 # 3. 测试 API
-curl http://localhost:5000/api/v1/health
+curl http://localhost:5000/api/health
 ```
 
 ### Docker 测试（推荐）
