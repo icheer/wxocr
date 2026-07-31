@@ -770,7 +770,7 @@ A: OCR 识别后的临时文件有数量限制（默认保留 30 个），超过
 
 ## 社区支持
 
-- [LinuxDO](https://linux.do)
+- 学AI上L站！ https://linux.do/
 
 ---
 
