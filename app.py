@@ -71,6 +71,12 @@ def create_app(config_name=None):
         from flask import send_from_directory
         return send_from_directory('static', 'index.html')
 
+    @app.route('/app.js')
+    def app_js():
+        """Vue应用脚本"""
+        from flask import send_from_directory
+        return send_from_directory('static', 'app.js')
+
     logger.info("应用创建完成")
     return app
 
