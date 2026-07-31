@@ -5,11 +5,55 @@ PDF 文本嵌入服务
 使用 PyMuPDF (fitz) 实现，支持中文
 """
 import fitz  # PyMuPDF
+import re
 from PIL import Image
 from pathlib import Path
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _is_chinese_char(char):
+    """判断字符是否为中文字符"""
+    return '一' <= char <= '鿿'
+
+
+def _split_text_by_language(text):
+    """
+    将文本按中文和非中文分段
+
+    Returns:
+        list of (text_segment, is_chinese)
+    """
+    if not text:
+        return []
+
+    segments = []
+    current_segment = ""
+    current_is_chinese = None
+
+    for char in text:
+        is_chinese = _is_chinese_char(char)
+
+        if current_is_chinese is None:
+            # 第一个字符
+            current_segment = char
+            current_is_chinese = is_chinese
+        elif is_chinese == current_is_chinese:
+            # 同类型字符，追加
+            current_segment += char
+        else:
+            # 类型变化，保存当前段落，开始新段落
+            if current_segment:
+                segments.append((current_segment, current_is_chinese))
+            current_segment = char
+            current_is_chinese = is_chinese
+
+    # 保存最后一个段落
+    if current_segment:
+        segments.append((current_segment, current_is_chinese))
+
+    return segments
 
 
 def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: str):
@@ -115,20 +159,39 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
                 fontsize = 100
 
             try:
-                # 使用 insert_text
-                # 基线位置：左下角（文字的底部基线）
-                # PyMuPDF 的文本基线在底部，所以 y 坐标应该是 bottom
-                point = fitz.Point(left, bottom)
+                # 智能分段处理：中文用china-s，非中文用helv
+                segments = _split_text_by_language(text)
 
-                rc = page.insert_text(
-                    point,
-                    text,
-                    fontsize=fontsize,
-                    fontname=selected_font,
-                    color=(1, 1, 1),  # 白色（配合渲染模式 3 使其不可见）
-                    render_mode=3,  # 渲染模式 3：不可见但可选择和搜索
-                    overlay=True
-                )
+                # 基线位置：左下角
+                current_x = left
+
+                for segment_text, is_chinese in segments:
+                    if not segment_text:
+                        continue
+
+                    # 选择字体
+                    fontname = "china-s" if is_chinese else "helv"
+
+                    point = fitz.Point(current_x, bottom)
+
+                    # 插入文本段
+                    page.insert_text(
+                        point,
+                        segment_text,
+                        fontsize=fontsize,
+                        fontname=fontname,
+                        color=(1, 1, 1),
+                        render_mode=3,
+                        overlay=True
+                    )
+
+                    # 估算文本宽度，更新 x 坐标
+                    if is_chinese:
+                        char_width = fontsize
+                    else:
+                        char_width = fontsize * 0.6
+
+                    current_x += len(segment_text) * char_width
 
                 embedded_count += 1
                 logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}, 位置: ({left}, {bottom}), 字体: {fontsize:.1f}")
@@ -238,23 +301,45 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                     fontsize = 100
 
                 try:
-                    # 使用 insert_text
-                    # 基线位置：左下角
-                    point = fitz.Point(left, bottom)
+                    # 智能分段处理：中文用china-s，非中文用helv
+                    segments = _split_text_by_language(text)
 
-                    # 使用 helv 字体以避免字符间距问题
-                    # helv 对英文数字支持好，中文也能显示
-                    page.insert_text(
-                        point,
-                        text,
-                        fontsize=fontsize,
-                        fontname="helv",  # 使用 Helvetica，避免字符间距问题
-                        color=(1, 1, 1),
-                        render_mode=3,  # 不可见但可选择
-                        overlay=True
-                    )
+                    # 基线位置：左下角
+                    current_x = left
+
+                    for segment_text, is_chinese in segments:
+                        if not segment_text:
+                            continue
+
+                        # 选择字体
+                        fontname = "china-s" if is_chinese else "helv"
+
+                        point = fitz.Point(current_x, bottom)
+
+                        # 插入文本段
+                        page.insert_text(
+                            point,
+                            segment_text,
+                            fontsize=fontsize,
+                            fontname=fontname,
+                            color=(1, 1, 1),
+                            render_mode=3,
+                            overlay=True
+                        )
+
+                        # 估算文本宽度，更新 x 坐标
+                        # 中文字符宽度约等于字体大小
+                        # 英文字符宽度约为字体大小的 0.6 倍
+                        if is_chinese:
+                            char_width = fontsize
+                        else:
+                            char_width = fontsize * 0.6
+
+                        current_x += len(segment_text) * char_width
+
                     embedded_count += 1
                     total_embedded += 1
+
                 except Exception as e:
                     logger.warning(f"页码 {page_num} 嵌入文本块失败: {text[:20]}..., 错误: {e}")
                     continue
