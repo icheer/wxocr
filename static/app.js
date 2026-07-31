@@ -287,6 +287,7 @@ createApp({
           width: page.width,
           height: page.height,
           text: page.text,
+          processedImagePath: page.processed_image_path,  // 保存预处理图片路径
           ocrResults: (page.ocr_response || []).map((result, idx) => ({
             ...result,
             id: `${page.page_number}-${idx}`,
@@ -369,6 +370,7 @@ createApp({
             page_number: page.pageNumber,
             width: page.width,
             height: page.height,
+            processed_image_path: page.processedImagePath,  // 传递预处理图片路径
             ocr_response: this.displayResults
               .filter(r => r.pageNumber === page.pageNumber && !r.deleted)
               .map(r => ({
