@@ -2,62 +2,14 @@
 PDF 文本嵌入服务
 
 将 OCR 识别的文本块嵌入到图片或 PDF 中，生成可搜索的 PDF
+使用 PyMuPDF (fitz) 实现，支持中文
 """
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.utils import simpleSplit
-from PyPDF2 import PdfReader, PdfWriter
+import fitz  # PyMuPDF
 from PIL import Image
 from pathlib import Path
-import io
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-# 尝试注册中文字体
-_FONT_REGISTERED = False
-_FONT_NAME = "Helvetica"  # 默认字体
-
-def _register_chinese_font():
-    """注册中文字体（如果可用）"""
-    global _FONT_REGISTERED, _FONT_NAME
-
-    if _FONT_REGISTERED:
-        return _FONT_NAME
-
-    # 尝试常见的中文字体路径
-    font_paths = [
-        # Windows
-        "C:/Windows/Fonts/simsun.ttc",
-        "C:/Windows/Fonts/simhei.ttf",
-        "C:/Windows/Fonts/msyh.ttc",
-        # Linux
-        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
-        # macOS
-        "/System/Library/Fonts/PingFang.ttc",
-        "/Library/Fonts/Arial Unicode.ttf",
-    ]
-
-    for font_path in font_paths:
-        try:
-            if Path(font_path).exists():
-                pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
-                _FONT_NAME = 'ChineseFont'
-                _FONT_REGISTERED = True
-                logger.info(f"成功注册中文字体: {font_path}")
-                return _FONT_NAME
-        except Exception as e:
-            logger.debug(f"注册字体失败 {font_path}: {e}")
-            continue
-
-    # 如果所有字体都失败，使用默认字体
-    logger.warning("未找到中文字体，使用默认字体（中文可能显示异常）")
-    _FONT_REGISTERED = True
-    return _FONT_NAME
 
 
 def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: str):
@@ -70,20 +22,20 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
         output_pdf_path: 输出 PDF 路径
     """
     try:
-        # 注册中文字体
-        font_name = _register_chinese_font()
-
         # 打开图片获取尺寸
         img = Image.open(image_path)
         img_width, img_height = img.size
 
         logger.info(f"图片尺寸: {img_width}x{img_height}, 文本块数量: {len(ocr_response)}")
 
-        # 创建 PDF
-        c = canvas.Canvas(output_pdf_path, pagesize=(img_width, img_height))
+        # 创建 PDF 文档
+        doc = fitz.open()
 
-        # 绘制图片作为背景
-        c.drawImage(image_path, 0, 0, width=img_width, height=img_height)
+        # 创建页面
+        page = doc.new_page(width=img_width, height=img_height)
+
+        # 插入图片作为背景
+        page.insert_image(fitz.Rect(0, 0, img_width, img_height), filename=image_path)
 
         # 嵌入不可见文本块
         for block in ocr_response:
@@ -104,31 +56,30 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
             if width <= 0 or height <= 0:
                 continue
 
-            # PDF 坐标系是左下角为原点，需要转换
-            # 图片坐标系：左上角为原点，y 向下
-            # PDF 坐标系：左下角为原点，y 向上
-            pdf_x = left
-            pdf_y = img_height - bottom
+            # PyMuPDF 坐标系：左上角为原点（与 OCR 一致）
+            rect = fitz.Rect(left, top, right, bottom)
 
-            # 设置文本渲染模式为不可见（模式 3）
-            c.setFillColorRGB(1, 1, 1, alpha=0)  # 完全透明
-            c.setStrokeColorRGB(1, 1, 1, alpha=0)
+            # 计算合适的字体大小
+            fontsize = height * 0.8
+            if fontsize < 1:
+                fontsize = 1
 
-            # 计算字体大小（简单估算）
-            font_size = height * 0.8
-            if font_size < 1:
-                font_size = 1
+            # 插入不可见文本（白色文本，渲染模式为不可见）
+            # 使用 insert_textbox 并设置 render_mode=3（不可见但可选择）
+            page.insert_textbox(
+                rect,
+                text,
+                fontsize=fontsize,
+                fontname="china-s",  # 使用内置中文字体（简体）
+                color=(1, 1, 1),  # 白色（不可见）
+                render_mode=3,  # 不可见模式
+                align=fitz.TEXT_ALIGN_LEFT
+            )
 
-            # 使用支持中文的字体
-            c.setFont(font_name, font_size)
+        # 保存 PDF
+        doc.save(output_pdf_path)
+        doc.close()
 
-            # 绘制不可见文本
-            text_obj = c.beginText(pdf_x, pdf_y)
-            text_obj.setTextRenderMode(3)  # 不可见模式
-            text_obj.textLine(text)
-            c.drawText(text_obj)
-
-        c.save()
         logger.info(f"图片嵌入文本完成，输出: {output_pdf_path}")
 
     except Exception as e:
@@ -146,47 +97,38 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
         output_pdf_path: 输出 PDF 路径
     """
     try:
-        # 注册中文字体
-        font_name = _register_chinese_font()
+        # 打开原始 PDF
+        doc = fitz.open(pdf_path)
 
-        # 读取原始 PDF
-        reader = PdfReader(pdf_path)
-        writer = PdfWriter()
-
-        logger.info(f"PDF 页数: {len(reader.pages)}, 待嵌入页数: {len(pages_data)}")
+        logger.info(f"PDF 页数: {doc.page_count}, 待嵌入页数: {len(pages_data)}")
 
         # 为每一页嵌入文本
         for page_data in pages_data:
             page_num = page_data.get('page_number', 1)
             page_index = page_num - 1
 
-            if page_index >= len(reader.pages):
+            if page_index >= doc.page_count:
                 logger.warning(f"页码 {page_num} 超出范围，跳过")
                 continue
 
-            # 获取原始页面
-            original_page = reader.pages[page_index]
+            # 获取页面
+            page = doc[page_index]
 
             # 获取页面尺寸
             width = float(page_data.get('width', 0))
             height = float(page_data.get('height', 0))
 
             if width <= 0 or height <= 0:
-                # 使用原始页面尺寸
-                media_box = original_page.mediabox
-                width = float(media_box.width)
-                height = float(media_box.height)
+                # 使用页面实际尺寸
+                rect = page.rect
+                width = rect.width
+                height = rect.height
 
             ocr_response = page_data.get('ocr_response', [])
 
             if not ocr_response:
-                # 没有文本块，直接添加原页面
-                writer.add_page(original_page)
+                # 没有文本块，跳过
                 continue
-
-            # 创建文本层
-            packet = io.BytesIO()
-            c = canvas.Canvas(packet, pagesize=(width, height))
 
             # 嵌入不可见文本块
             for block in ocr_response:
@@ -205,40 +147,28 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                 if block_width <= 0 or block_height <= 0:
                     continue
 
-                # 转换坐标系
-                pdf_x = left
-                pdf_y = height - bottom
+                # PyMuPDF 坐标系：左上角为原点
+                rect = fitz.Rect(left, top, right, bottom)
 
-                # 设置不可见文本
-                c.setFillColorRGB(1, 1, 1, alpha=0)
-                c.setStrokeColorRGB(1, 1, 1, alpha=0)
+                # 计算字体大小
+                fontsize = block_height * 0.8
+                if fontsize < 1:
+                    fontsize = 1
 
-                font_size = block_height * 0.8
-                if font_size < 1:
-                    font_size = 1
+                # 插入不可见文本
+                page.insert_textbox(
+                    rect,
+                    text,
+                    fontsize=fontsize,
+                    fontname="china-s",  # 使用内置中文字体
+                    color=(1, 1, 1),  # 白色（不可见）
+                    render_mode=3,  # 不可见模式
+                    align=fitz.TEXT_ALIGN_LEFT
+                )
 
-                # 使用支持中文的字体
-                c.setFont(font_name, font_size)
-
-                text_obj = c.beginText(pdf_x, pdf_y)
-                text_obj.setTextRenderMode(3)
-                text_obj.textLine(text)
-                c.drawText(text_obj)
-
-            c.save()
-
-            # 合并文本层和原始页面
-            packet.seek(0)
-            text_layer = PdfReader(packet)
-            text_page = text_layer.pages[0]
-
-            # 将文本层叠加到原始页面
-            original_page.merge_page(text_page)
-            writer.add_page(original_page)
-
-        # 写入输出文件
-        with open(output_pdf_path, 'wb') as output_file:
-            writer.write(output_file)
+        # 保存 PDF
+        doc.save(output_pdf_path)
+        doc.close()
 
         logger.info(f"PDF 嵌入文本完成，输出: {output_pdf_path}")
 

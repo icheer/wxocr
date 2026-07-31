@@ -651,7 +651,7 @@ A: OCR 识别后的临时文件有数量限制（默认保留 30 个），超过
 
 本项目基于以下开源项目：
 
-- [原版wxocr](https://github.com/golangboy/wxocr) - 微信 OCR 引擎封装
+- [wxocr](https://github.com/golangboy/wxocr) - 原版微信 OCR 引擎封装，本项目在此基础上二次开发
 - [wechat-ocr](https://github.com/swigger/wechat-ocr) - 微信 OCR 调用演示
 - [PyMuPDF](https://github.com/pymupdf/PyMuPDF) - PDF 处理库
 - [OpenCV](https://github.com/opencv/opencv-python) - 图像处理库
