@@ -495,13 +495,36 @@ def embed_text_to_pdf():
             return error_response(400, 'MISSING_FILE_PATH', '缺少 file_path 参数')
 
         # 检查文件是否存在
+        # 尝试多种路径解析方式
         full_path = Path(file_path)
-        if not full_path.is_absolute():
-            full_path = Config.TEMP_DIR / file_path
 
-        if not full_path.exists():
-            return error_response(404, 'FILE_NOT_FOUND',
-                '临时文件已过期或不存在，请重新上传文件进行OCR识别')
+        # 1. 如果是绝对路径，直接使用
+        if full_path.is_absolute():
+            if not full_path.exists():
+                return error_response(404, 'FILE_NOT_FOUND',
+                    '临时文件已过期或不存在，请重新上传文件进行OCR识别')
+        else:
+            # 2. 尝试作为相对路径（相对于当前工作目录）
+            if full_path.exists():
+                pass  # 找到了，使用这个路径
+            else:
+                # 3. 尝试从 file_path 中提取文件名，拼接到 TEMP_DIR
+                # 处理 "temp/xxx.png" 这种情况
+                file_name = file_path
+                if file_path.startswith(('temp/', 'temp\\')):
+                    # 去掉 temp/ 前缀
+                    file_name = str(Path(file_path).relative_to('temp'))
+
+                full_path = Config.TEMP_DIR / file_name
+
+                if not full_path.exists():
+                    # 最后尝试：直接拼接原路径
+                    full_path = Config.TEMP_DIR / file_path
+                    if not full_path.exists():
+                        return error_response(404, 'FILE_NOT_FOUND',
+                            f'临时文件已过期或不存在: {file_path}，请重新上传文件进行OCR识别')
+
+        logger.info(f"解析文件路径: {file_path} -> {full_path}")
 
         # 生成输出PDF路径
         output_filename = f"{uuid.uuid4()}_embedded.pdf"
@@ -513,15 +536,32 @@ def embed_text_to_pdf():
             if not ocr_response:
                 return error_response(400, 'MISSING_OCR_DATA', '缺少 ocr_response 数据')
 
-            logger.info(f"嵌入文本到图片: {full_path}")
-            embed_text_to_image(str(full_path), ocr_response, str(output_path))
+            logger.info(f"=== 开始嵌入文本到图片 ===")
+            logger.info(f"图片路径: {full_path}")
+            logger.info(f"文本块数量: {len(ocr_response)}")
+
+            try:
+                embed_text_to_image(str(full_path), ocr_response, str(output_path))
+                logger.info(f"=== 嵌入完成 ===")
+            except Exception as embed_error:
+                logger.error(f"嵌入失败: {embed_error}", exc_info=True)
+                return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(embed_error)}')
 
         elif file_type == 'pdf':
             pages = data.get('pages', [])
             if not pages:
                 return error_response(400, 'MISSING_PAGES_DATA', '缺少 pages 数据')
 
-            logger.info(f"嵌入文本到PDF: {full_path}")
+            logger.info(f"=== 开始嵌入文本到PDF ===")
+            logger.info(f"PDF路径: {full_path}")
+            logger.info(f"页面数量: {len(pages)}")
+
+            try:
+                embed_text_to_pdf(str(full_path), pages, str(output_path))
+                logger.info(f"=== 嵌入完成 ===")
+            except Exception as embed_error:
+                logger.error(f"嵌入失败: {embed_error}", exc_info=True)
+                return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(embed_error)}')
             embed_text_to_pdf(str(full_path), pages, str(output_path))
 
         else:

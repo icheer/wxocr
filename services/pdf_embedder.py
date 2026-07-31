@@ -21,78 +21,125 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
         ocr_response: OCR 识别结果列表，每项包含 text, left, top, right, bottom
         output_pdf_path: 输出 PDF 路径
     """
+    logger.info(f"[embed_text_to_image] 开始处理")
+    logger.info(f"[embed_text_to_image] 图片路径: {image_path}")
+    logger.info(f"[embed_text_to_image] 输出路径: {output_pdf_path}")
+    logger.info(f"[embed_text_to_image] 文本块数量: {len(ocr_response)}")
+
     try:
         # 打开图片获取尺寸
         img = Image.open(image_path)
         img_width, img_height = img.size
-
-        logger.info(f"图片尺寸: {img_width}x{img_height}, 文本块数量: {len(ocr_response)}")
+        logger.info(f"[embed_text_to_image] 图片尺寸: {img_width}x{img_height}")
 
         # 创建 PDF 文档
         doc = fitz.open()
+        logger.info(f"[embed_text_to_image] PDF 文档已创建")
 
         # 创建页面
         page = doc.new_page(width=img_width, height=img_height)
+        logger.info(f"[embed_text_to_image] 页面已创建")
 
         # 插入图片作为背景
         page.insert_image(fitz.Rect(0, 0, img_width, img_height), filename=image_path)
+        logger.info(f"[embed_text_to_image] 背景图片已插入")
 
-        # 嵌入不可见文本块
-        embedded_count = 0
-        for block in ocr_response:
-            text = block.get('text', '').strip()
-            if not text:
+        # 获取可用字体列表
+        try:
+            available_fonts = fitz.fitz_fontdescriptors.keys()
+            logger.info(f"[embed_text_to_image] 可用字体: {list(available_fonts)[:10]}")
+        except Exception as font_list_error:
+            logger.warning(f"[embed_text_to_image] 无法获取字体列表: {font_list_error}")
+
+        # 尝试不同的字体名称
+        font_names = ["china-s", "cjk", "noto", "helv"]
+        selected_font = "helv"  # 默认字体
+
+        for font_name in font_names:
+            try:
+                # 测试字体是否可用
+                test_rect = fitz.Rect(0, 0, 100, 20)
+                test_rc = page.insert_textbox(
+                    test_rect,
+                    "测试",
+                    fontsize=10,
+                    fontname=font_name,
+                    color=(1, 1, 1),
+                    overlay=False
+                )
+                if test_rc >= 0:
+                    selected_font = font_name
+                    logger.info(f"[embed_text_to_image] 选择字体: {font_name}")
+                    break
+            except Exception as font_error:
+                logger.debug(f"[embed_text_to_image] 字体 {font_name} 不可用: {font_error}")
                 continue
 
-            # 获取坐标（OCR 返回的是图片坐标系）
+        # 清除测试文本
+        doc.close()
+        doc = fitz.open()
+        page = doc.new_page(width=img_width, height=img_height)
+        page.insert_image(fitz.Rect(0, 0, img_width, img_height), filename=image_path)
+
+        logger.info(f"[embed_text_to_image] 开始嵌入 {len(ocr_response)} 个文本块，使用字体: {selected_font}")
+
+        # 嵌入文本块
+        embedded_count = 0
+        for i, block in enumerate(ocr_response):
+            text = block.get('text', '').strip()
+            if not text:
+                logger.debug(f"[embed_text_to_image] 文本块 {i} 为空，跳过")
+                continue
+
+            # 获取坐标
             left = float(block.get('left', 0))
             top = float(block.get('top', 0))
             right = float(block.get('right', 0))
             bottom = float(block.get('bottom', 0))
 
-            # 计算宽高
             width = right - left
             height = bottom - top
 
             if width <= 0 or height <= 0:
+                logger.debug(f"[embed_text_to_image] 文本块 {i} 尺寸无效: {width}x{height}")
                 continue
 
-            # PyMuPDF 坐标系：左上角为原点（与 OCR 一致）
-            rect = fitz.Rect(left, top, right, bottom)
-
-            # 计算合适的字体大小
-            fontsize = height * 0.8
-            if fontsize < 1:
-                fontsize = 1
+            # 计算字体大小（使用更小的值）
+            fontsize = max(height * 0.5, 4)  # 至少 4pt
 
             try:
-                # 使用 insert_textbox，设置白色文本（几乎不可见但可选择）
-                # 不使用 render_mode 参数（PyMuPDF 的 insert_textbox 不支持）
-                rc = page.insert_textbox(
-                    rect,
+                # 使用 insert_text 而不是 insert_textbox
+                # insert_text 更简单，不受矩形约束
+                point = fitz.Point(left, top + height * 0.8)  # 基线位置
+
+                rc = page.insert_text(
+                    point,
                     text,
                     fontsize=fontsize,
-                    fontname="china-s",  # 使用内置中文字体（简体）
-                    color=(1, 1, 1),  # 白色文本
-                    align=fitz.TEXT_ALIGN_LEFT,
-                    overlay=True  # 作为叠加层
+                    fontname=selected_font,
+                    color=(1, 1, 1),  # 白色（配合渲染模式 3 使其不可见）
+                    render_mode=3,  # 渲染模式 3：不可见但可选择和搜索
+                    overlay=True
                 )
-                if rc >= 0:  # rc >= 0 表示成功
-                    embedded_count += 1
+
+                embedded_count += 1
+                logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}")
+
             except Exception as e:
-                logger.warning(f"嵌入文本块失败: {text[:20]}..., 错误: {e}")
+                logger.warning(f"[embed_text_to_image] 文本块 {i} 嵌入异常: {text[:20]}, 错误: {e}")
                 continue
 
-        logger.info(f"成功嵌入 {embedded_count}/{len(ocr_response)} 个文本块")
+        logger.info(f"[embed_text_to_image] 成功嵌入 {embedded_count}/{len(ocr_response)} 个文本块")
 
         # 保存 PDF
         doc.save(output_pdf_path, garbage=4, deflate=True)
         doc.close()
 
-        logger.info(f"图片嵌入文本完成，输出: {output_pdf_path}")
+        logger.info(f"[embed_text_to_image] PDF 已保存到: {output_pdf_path}")
+        logger.info(f"[embed_text_to_image] 处理完成")
 
     except Exception as e:
-        logger.error(f"图片嵌入文本失败: {e}", exc_info=True)
+        logger.error(f"[embed_text_to_image] 处理失败: {e}", exc_info=True)
         raise
 
 
@@ -161,28 +208,24 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                 if block_width <= 0 or block_height <= 0:
                     continue
 
-                # PyMuPDF 坐标系：左上角为原点
-                rect = fitz.Rect(left, top, right, bottom)
-
                 # 计算字体大小
-                fontsize = block_height * 0.8
-                if fontsize < 1:
-                    fontsize = 1
+                fontsize = max(block_height * 0.5, 4)
 
                 try:
-                    # 插入不可见文本
-                    rc = page.insert_textbox(
-                        rect,
+                    # 使用 insert_text
+                    point = fitz.Point(left, top + block_height * 0.8)
+
+                    page.insert_text(
+                        point,
                         text,
                         fontsize=fontsize,
-                        fontname="china-s",  # 使用内置中文字体
-                        color=(1, 1, 1),  # 白色文本
-                        align=fitz.TEXT_ALIGN_LEFT,
-                        overlay=True  # 作为叠加层
+                        fontname="china-s",
+                        color=(1, 1, 1),
+                        render_mode=3,  # 不可见但可选择
+                        overlay=True
                     )
-                    if rc >= 0:
-                        embedded_count += 1
-                        total_embedded += 1
+                    embedded_count += 1
+                    total_embedded += 1
                 except Exception as e:
                     logger.warning(f"页码 {page_num} 嵌入文本块失败: {text[:20]}..., 错误: {e}")
                     continue
