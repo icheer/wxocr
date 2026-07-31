@@ -180,15 +180,20 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
             # 获取页面
             page = doc[page_index]
 
-            # 获取页面尺寸
-            width = float(page_data.get('width', 0))
-            height = float(page_data.get('height', 0))
+            # 获取 OCR 返回的页面尺寸（可能是放大后的）
+            ocr_width = float(page_data.get('width', 0))
+            ocr_height = float(page_data.get('height', 0))
 
-            if width <= 0 or height <= 0:
-                # 使用页面实际尺寸
-                rect = page.rect
-                width = rect.width
-                height = rect.height
+            # 获取实际 PDF 页面尺寸
+            page_rect = page.rect
+            actual_width = page_rect.width
+            actual_height = page_rect.height
+
+            # 计算缩放比例
+            scale_x = actual_width / ocr_width if ocr_width > 0 else 1.0
+            scale_y = actual_height / ocr_height if ocr_height > 0 else 1.0
+
+            logger.info(f"页码 {page_num} 尺寸: OCR({ocr_width}x{ocr_height}), 实际({actual_width}x{actual_height}), 缩放({scale_x:.3f}, {scale_y:.3f})")
 
             ocr_response = page_data.get('ocr_response', [])
 
@@ -205,10 +210,17 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                 if not text:
                     continue
 
+                # 获取 OCR 坐标（放大后的）
                 left = float(block.get('left', 0))
                 top = float(block.get('top', 0))
                 right = float(block.get('right', 0))
                 bottom = float(block.get('bottom', 0))
+
+                # 缩放到实际 PDF 坐标
+                left = left * scale_x
+                top = top * scale_y
+                right = right * scale_x
+                bottom = bottom * scale_y
 
                 block_width = right - left
                 block_height = bottom - top
@@ -230,6 +242,7 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                     # 基线位置：左下角
                     point = fitz.Point(left, bottom)
 
+                    # 使用 morph 参数调整字符间距，避免字符被分散
                     page.insert_text(
                         point,
                         text,
@@ -237,7 +250,8 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                         fontname="china-s",
                         color=(1, 1, 1),
                         render_mode=3,  # 不可见但可选择
-                        overlay=True
+                        overlay=True,
+                        morph=(fitz.Point(0, 0), fitz.Matrix(1, 0, 0, 1, 0, 0))  # 标准变换矩阵
                     )
                     embedded_count += 1
                     total_embedded += 1
