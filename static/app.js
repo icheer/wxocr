@@ -33,28 +33,19 @@ createApp({
   computed: {
     displayResults() {
       if (this.isPdf) {
-        // PDF 多页结果：添加 id 和 pageNumber
+        // PDF 多页结果：展平所有页面的结果
         const results = [];
         this.pdfPages.forEach(page => {
-          page.ocrResults.forEach((result, idx) => {
-            results.push({
-              ...result,
-              id: `${page.pageNumber}-${idx}`,
-              pageNumber: page.pageNumber,
-              deleted: false,
-              editedText: result.text
+          if (page.ocrResults) {
+            page.ocrResults.forEach((result) => {
+              results.push(result);
             });
-          });
+          }
         });
         return results;
       } else {
-        // 图片结果：添加 id
-        return this.ocrResults.map((result, idx) => ({
-          ...result,
-          id: idx,
-          deleted: false,
-          editedText: result.text
-        }));
+        // 图片结果：直接返回
+        return this.ocrResults;
       }
     },
     dynamicFullText() {
@@ -64,10 +55,11 @@ createApp({
         const pageGroups = {};
         this.displayResults.forEach(result => {
           if (!result.deleted) {
-            if (!pageGroups[result.pageNumber]) {
-              pageGroups[result.pageNumber] = [];
+            const pageNum = result.pageNumber;
+            if (!pageGroups[pageNum]) {
+              pageGroups[pageNum] = [];
             }
-            pageGroups[result.pageNumber].push(result.editedText || result.text);
+            pageGroups[pageNum].push(result.editedText || result.text);
           }
         });
         // 拼接，跨页保持空行
@@ -289,7 +281,13 @@ createApp({
           width: page.width,
           height: page.height,
           text: page.text,
-          ocrResults: page.ocr_response || []
+          ocrResults: (page.ocr_response || []).map((result, idx) => ({
+            ...result,
+            id: `${page.page_number}-${idx}`,
+            pageNumber: page.page_number,
+            deleted: false,
+            editedText: result.text
+          }))
         }));
         this.fullText = this.pdfPages.map(p => p.text).join('\n\n');
         this.filePath = data.pdfpath || '';  // 保存 PDF 路径
@@ -297,7 +295,12 @@ createApp({
         // 图片结果
         this.imageWidth = data.width || this.imageWidth;
         this.imageHeight = data.height || this.imageHeight;
-        this.ocrResults = data.ocr_response || [];
+        this.ocrResults = (data.ocr_response || []).map((result, idx) => ({
+          ...result,
+          id: idx,
+          deleted: false,
+          editedText: result.text
+        }));
         this.fullText = data.text || '';
         this.filePath = data.imgpath || '';  // 保存图片路径
       }
@@ -315,7 +318,8 @@ createApp({
 
     // 编辑文本
     updateText(result, newText) {
-      result.editedText = newText;
+      // 直接修改对象属性，Vue 3 会自动追踪
+      result.editedText = newText.trim();
     },
 
     // 删除行

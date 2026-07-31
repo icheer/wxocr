@@ -7,6 +7,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.utils import simpleSplit
 from PyPDF2 import PdfReader, PdfWriter
 from PIL import Image
 from pathlib import Path
@@ -14,6 +15,49 @@ import io
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
+
+# 尝试注册中文字体
+_FONT_REGISTERED = False
+_FONT_NAME = "Helvetica"  # 默认字体
+
+def _register_chinese_font():
+    """注册中文字体（如果可用）"""
+    global _FONT_REGISTERED, _FONT_NAME
+
+    if _FONT_REGISTERED:
+        return _FONT_NAME
+
+    # 尝试常见的中文字体路径
+    font_paths = [
+        # Windows
+        "C:/Windows/Fonts/simsun.ttc",
+        "C:/Windows/Fonts/simhei.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+        # Linux
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        # macOS
+        "/System/Library/Fonts/PingFang.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    ]
+
+    for font_path in font_paths:
+        try:
+            if Path(font_path).exists():
+                pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
+                _FONT_NAME = 'ChineseFont'
+                _FONT_REGISTERED = True
+                logger.info(f"成功注册中文字体: {font_path}")
+                return _FONT_NAME
+        except Exception as e:
+            logger.debug(f"注册字体失败 {font_path}: {e}")
+            continue
+
+    # 如果所有字体都失败，使用默认字体
+    logger.warning("未找到中文字体，使用默认字体（中文可能显示异常）")
+    _FONT_REGISTERED = True
+    return _FONT_NAME
 
 
 def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: str):
@@ -26,6 +70,9 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
         output_pdf_path: 输出 PDF 路径
     """
     try:
+        # 注册中文字体
+        font_name = _register_chinese_font()
+
         # 打开图片获取尺寸
         img = Image.open(image_path)
         img_width, img_height = img.size
@@ -72,7 +119,8 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
             if font_size < 1:
                 font_size = 1
 
-            c.setFont("Helvetica", font_size)
+            # 使用支持中文的字体
+            c.setFont(font_name, font_size)
 
             # 绘制不可见文本
             text_obj = c.beginText(pdf_x, pdf_y)
@@ -98,6 +146,9 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
         output_pdf_path: 输出 PDF 路径
     """
     try:
+        # 注册中文字体
+        font_name = _register_chinese_font()
+
         # 读取原始 PDF
         reader = PdfReader(pdf_path)
         writer = PdfWriter()
@@ -166,7 +217,8 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                 if font_size < 1:
                     font_size = 1
 
-                c.setFont("Helvetica", font_size)
+                # 使用支持中文的字体
+                c.setFont(font_name, font_size)
 
                 text_obj = c.beginText(pdf_x, pdf_y)
                 text_obj.setTextRenderMode(3)
