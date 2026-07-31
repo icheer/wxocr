@@ -6,6 +6,7 @@ from api.validators import validate_file_upload, OcrRequestParams, ValidationErr
 from api.error_handlers import error_response, RateLimitError
 from api.auth import require_api_key
 from utils.logger import get_logger
+from utils.request_helper import get_client_ip
 from pathlib import Path
 import time
 import os
@@ -45,7 +46,7 @@ def ocr():
     try:
         # 解析请求参数
         params = OcrRequestParams()
-        client_ip = request.remote_addr
+        client_ip = get_client_ip()
         logger.info(f"收到OCR请求 [来自: {client_ip}]: {params.to_dict()}")
 
         # 检查是否为测试模式
