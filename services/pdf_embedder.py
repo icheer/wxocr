@@ -38,6 +38,7 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
         page.insert_image(fitz.Rect(0, 0, img_width, img_height), filename=image_path)
 
         # 嵌入不可见文本块
+        embedded_count = 0
         for block in ocr_response:
             text = block.get('text', '').strip()
             if not text:
@@ -64,20 +65,28 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
             if fontsize < 1:
                 fontsize = 1
 
-            # 插入不可见文本（白色文本，渲染模式为不可见）
-            # 使用 insert_textbox 并设置 render_mode=3（不可见但可选择）
-            page.insert_textbox(
-                rect,
-                text,
-                fontsize=fontsize,
-                fontname="china-s",  # 使用内置中文字体（简体）
-                color=(1, 1, 1),  # 白色（不可见）
-                render_mode=3,  # 不可见模式
-                align=fitz.TEXT_ALIGN_LEFT
-            )
+            try:
+                # 使用 insert_textbox，设置白色文本（几乎不可见但可选择）
+                # 不使用 render_mode 参数（PyMuPDF 的 insert_textbox 不支持）
+                rc = page.insert_textbox(
+                    rect,
+                    text,
+                    fontsize=fontsize,
+                    fontname="china-s",  # 使用内置中文字体（简体）
+                    color=(1, 1, 1),  # 白色文本
+                    align=fitz.TEXT_ALIGN_LEFT,
+                    overlay=True  # 作为叠加层
+                )
+                if rc >= 0:  # rc >= 0 表示成功
+                    embedded_count += 1
+            except Exception as e:
+                logger.warning(f"嵌入文本块失败: {text[:20]}..., 错误: {e}")
+                continue
+
+        logger.info(f"成功嵌入 {embedded_count}/{len(ocr_response)} 个文本块")
 
         # 保存 PDF
-        doc.save(output_pdf_path)
+        doc.save(output_pdf_path, garbage=4, deflate=True)
         doc.close()
 
         logger.info(f"图片嵌入文本完成，输出: {output_pdf_path}")
@@ -101,6 +110,8 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
         doc = fitz.open(pdf_path)
 
         logger.info(f"PDF 页数: {doc.page_count}, 待嵌入页数: {len(pages_data)}")
+
+        total_embedded = 0
 
         # 为每一页嵌入文本
         for page_data in pages_data:
@@ -128,7 +139,10 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
 
             if not ocr_response:
                 # 没有文本块，跳过
+                logger.debug(f"页码 {page_num} 没有文本块，跳过")
                 continue
+
+            embedded_count = 0
 
             # 嵌入不可见文本块
             for block in ocr_response:
@@ -155,19 +169,30 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                 if fontsize < 1:
                     fontsize = 1
 
-                # 插入不可见文本
-                page.insert_textbox(
-                    rect,
-                    text,
-                    fontsize=fontsize,
-                    fontname="china-s",  # 使用内置中文字体
-                    color=(1, 1, 1),  # 白色（不可见）
-                    render_mode=3,  # 不可见模式
-                    align=fitz.TEXT_ALIGN_LEFT
-                )
+                try:
+                    # 插入不可见文本
+                    rc = page.insert_textbox(
+                        rect,
+                        text,
+                        fontsize=fontsize,
+                        fontname="china-s",  # 使用内置中文字体
+                        color=(1, 1, 1),  # 白色文本
+                        align=fitz.TEXT_ALIGN_LEFT,
+                        overlay=True  # 作为叠加层
+                    )
+                    if rc >= 0:
+                        embedded_count += 1
+                        total_embedded += 1
+                except Exception as e:
+                    logger.warning(f"页码 {page_num} 嵌入文本块失败: {text[:20]}..., 错误: {e}")
+                    continue
+
+            logger.info(f"页码 {page_num} 成功嵌入 {embedded_count}/{len(ocr_response)} 个文本块")
+
+        logger.info(f"PDF 总共成功嵌入 {total_embedded} 个文本块")
 
         # 保存 PDF
-        doc.save(output_pdf_path)
+        doc.save(output_pdf_path, garbage=4, deflate=True)
         doc.close()
 
         logger.info(f"PDF 嵌入文本完成，输出: {output_pdf_path}")
