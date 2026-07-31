@@ -244,8 +244,8 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
                 result['data']['imgpath'] = str(input_path)  # 返回图片路径
                 result['data']['ocr_response'] = metadata.get('ocr_response', [])
 
-            # 清理旧的临时文件（保留最近30个）
-            cleanup_old_temp_files(temp_dir, keep_recent=30)
+            # 清理旧的临时文件
+            cleanup_old_temp_files(temp_dir, keep_recent=Config.TEMP_FILE_RETENTION)
 
             return result
 
@@ -254,7 +254,7 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
         pass
 
 
-def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) -> tuple:
+def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, apply_preprocessing: bool = False) -> tuple:
     """
     处理PDF文件
 
@@ -262,24 +262,27 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
         pdf_path: PDF文件路径
         params: 请求参数
         temp_files: 临时文件列表（用于记录需要清理的文件）
+        apply_preprocessing: 是否强制渲染所有页面并应用预处理
 
     Returns:
         tuple: (文本内容, 元数据)
     """
-    from services.pdf_processor import process_pdf
+    from services.pdf_processor import process_pdf, render_pdf_page
     from services.image_processor import preprocess_image
     from services.ocr_service import ocr_image
+    from config.settings import Config
 
     logger.info("开始处理PDF文件")
 
     # 处理PDF
-    pdf_result = process_pdf(pdf_path)
+    pdf_result = process_pdf(pdf_path, force_render=apply_preprocessing)
 
     # 为每页执行 OCR（如果需要）
     for page_info in pdf_result.pages:
         if page_info.image_path:
             # 该页需要 OCR
             img_path = page_info.image_path
+            processed_path = None
 
             # 预处理
             if params.remove_watermark or params.deskew:
@@ -295,6 +298,14 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
                 )
                 temp_files.append(Path(processed_path))
                 ocr_input = processed_path
+
+                # 【优化点1】如果apply_preprocessing=true，立即删除原渲染图片
+                if apply_preprocessing:
+                    try:
+                        Path(img_path).unlink()
+                        logger.debug(f"已删除原渲染图片: {img_path}")
+                    except Exception as e:
+                        logger.warning(f"删除原渲染图片失败: {e}")
             else:
                 ocr_input = img_path
 
@@ -316,6 +327,9 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
                     page_info.width = ocr_result.width
                     page_info.height = ocr_result.height
 
+            # 保存预处理后的图片路径（用于embed时使用）
+            page_info.processed_image_path = processed_path
+
     # 合并所有页的文本
     all_text_parts = [p.text for p in pdf_result.pages if p.text]
     final_text = '\n\n'.join(all_text_parts) if all_text_parts else ""
@@ -323,14 +337,19 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
     # 构建按页组织的数据
     pages_data = []
     for page_info in pdf_result.pages:
-        pages_data.append({
+        page_data = {
             'page_number': page_info.page_number,
             'width': page_info.width,
             'height': page_info.height,
             'text': page_info.text,
             'strategy': page_info.strategy,
             'ocr_response': page_info.ocr_response
-        })
+        }
+        # 添加预处理图片路径
+        if hasattr(page_info, 'processed_image_path') and page_info.processed_image_path:
+            page_data['processed_image_path'] = page_info.processed_image_path
+
+        pages_data.append(page_data)
 
     # 元数据
     metadata = {
@@ -346,8 +365,6 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) 
     # 将PDF提取的图片加入清理列表
     for img_path in pdf_result.images:
         temp_files.append(Path(img_path))
-
-    return final_text, metadata
 
     return final_text, metadata
 
@@ -578,12 +595,11 @@ def embed_text_to_pdf():
             logger.info(f"页面数量: {len(pages)}")
 
             try:
-                embed_text_to_pdf(str(full_path), pages, str(output_path))
+                embed_text_to_pdf(str(full_path), pages, str(output_path), apply_preprocessing=apply_preprocessing)
                 logger.info(f"=== 嵌入完成 ===")
             except Exception as embed_error:
                 logger.error(f"嵌入失败: {embed_error}", exc_info=True)
                 return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(embed_error)}')
-            embed_text_to_pdf(str(full_path), pages, str(output_path))
 
         else:
             return error_response(400, 'INVALID_FILE_TYPE',
@@ -673,7 +689,8 @@ def ocr_and_embed():
                 final_text, metadata = process_pdf_file(
                     str(input_path),
                     params,
-                    temp_files
+                    temp_files,
+                    apply_preprocessing=apply_preprocessing  # 传递参数
                 )
                 file_type = 'pdf'
             else:
@@ -699,7 +716,7 @@ def ocr_and_embed():
 
                 pages_data = metadata['pages']
                 logger.info(f"嵌入PDF，共 {len(pages_data)} 页")
-                embed_text_to_pdf(str(input_path), pages_data, str(output_path))
+                embed_text_to_pdf(str(input_path), pages_data, str(output_path), apply_preprocessing=apply_preprocessing)
             else:
                 # 图片模式
                 if 'ocr_response' not in metadata:

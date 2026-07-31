@@ -248,7 +248,7 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
         raise
 
 
-def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
+def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str, apply_preprocessing: bool = False):
     """
     将文本块嵌入到 PDF 的每一页中
 
@@ -256,12 +256,13 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
         pdf_path: 原始 PDF 路径
         pages_data: 页面数据列表，每项包含 page_number, width, height, ocr_response
         output_pdf_path: 输出 PDF 路径
+        apply_preprocessing: 是否使用预处理后的图片替换页面背景
     """
     try:
         # 打开原始 PDF
         doc = fitz.open(pdf_path)
 
-        logger.info(f"PDF 页数: {doc.page_count}, 待嵌入页数: {len(pages_data)}")
+        logger.info(f"PDF 页数: {doc.page_count}, 待嵌入页数: {len(pages_data)}, apply_preprocessing: {apply_preprocessing}")
 
         total_embedded = 0
 
@@ -276,6 +277,28 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
 
             # 获取页面
             page = doc[page_index]
+
+            # 【关键】如果 apply_preprocessing=true 且有预处理后的图片，替换页面背景
+            if apply_preprocessing and page_data.get('processed_image_path'):
+                processed_img_path = page_data['processed_image_path']
+                if Path(processed_img_path).exists():
+                    try:
+                        logger.info(f"页码 {page_num}: 使用预处理图片替换背景: {processed_img_path}")
+
+                        # 获取页面矩形
+                        page_rect = page.rect
+
+                        # 清空页面内容（但保留页面结构）
+                        page.clean_contents()
+
+                        # 插入预处理后的图片作为背景
+                        page.insert_image(page_rect, filename=processed_img_path)
+
+                        logger.info(f"页码 {page_num}: 背景替换成功")
+                    except Exception as e:
+                        logger.error(f"页码 {page_num}: 替换背景失败: {e}")
+                else:
+                    logger.warning(f"页码 {page_num}: 预处理图片不存在: {processed_img_path}")
 
             # 获取 OCR 返回的页面尺寸（可能是放大后的）
             ocr_width = float(page_data.get('width', 0))

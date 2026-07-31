@@ -35,6 +35,7 @@ class Config:
     TEMP_DIR = Path(os.getenv('TEMP_DIR', str(BASE_DIR / 'temp')))
     CLEANUP_TEMP_FILES = os.getenv('CLEANUP_TEMP_FILES', 'true').lower() == 'true'
     TEMP_FILE_MAX_AGE_HOURS = int(os.getenv('TEMP_FILE_MAX_AGE_HOURS', 24))
+    TEMP_FILE_RETENTION = int(os.getenv('TEMP_FILE_RETENTION', 200))  # 保留的临时文件数量
 
     # ==================== 预处理默认参数 ====================
     # 水印去除

@@ -310,7 +310,7 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `file_type` | String | ✅ | 文件类型（image/pdf） |
 | `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
 | `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
-| `apply_preprocessing` | Boolean | ❌ | 图片模式专用：是否使用预处理后的图片（去水印/纠偏后的版本），默认 false |
+| `apply_preprocessing` | Boolean | ❌ | 是否使用预处理后的版本（去水印/纠偏后），默认 false。图片模式直接使用预处理图片；PDF模式使用预处理后的页面图片重建PDF |
 
 ### OCR-and-Embed 一站式接口
 
@@ -333,7 +333,7 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `watermark_color` | String | ❌ | 水印颜色（#RRGGBB） |
 | `watermark_tolerance` | Integer | ❌ | 颜色容差（0-255，默认40） |
 | `deskew` | Boolean | ❌ | 是否纠正倾斜 |
-| `apply_preprocessing` | Boolean | ❌ | 图片专用：是否在最终PDF中应用预处理效果（去水印/纠偏），默认 false |
+| `apply_preprocessing` | Boolean | ❌ | 是否在最终PDF中应用预处理效果（去水印/纠偏），默认 false。启用后图片使用预处理版本，PDF强制渲染所有页面并使用预处理后的图片重建 |
 
 **请求示例（PDF）**:
 ```bash

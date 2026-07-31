@@ -229,13 +229,14 @@ def extract_images_from_page(page: fitz.Page, doc: fitz.Document,
     return extracted_images
 
 
-def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
+def process_pdf(pdf_path: str, output_dir: str = None, force_render: bool = False) -> PdfProcessResult:
     """
     处理PDF文件
 
     Args:
         pdf_path: PDF文件路径
         output_dir: 输出目录（用于保存提取的图片）
+        force_render: 强制渲染所有页面为图片（用于apply_preprocessing）
 
     Returns:
         PdfProcessResult: 处理结果
@@ -253,7 +254,7 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
         doc = fitz.open(pdf_path)
         result.page_count = len(doc)
 
-        logger.info(f"开始处理PDF: {pdf_path}, 页数: {result.page_count}")
+        logger.info(f"开始处理PDF: {pdf_path}, 页数: {result.page_count}, force_render: {force_render}")
 
         # 检查页数限制
         if result.page_count > Config.MAX_PDF_PAGES:
@@ -275,29 +276,38 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
             page_info.width = int(page.rect.width)
             page_info.height = int(page.rect.height)
 
-            # 分析页面结构
-            page_analysis = analyze_page_structure(page)
-            strategy = page_analysis['strategy']
+            # 如果强制渲染，直接跳过分析，全部渲染为图片
+            if force_render:
+                strategy = 'full_page_render'
+                logger.info(f"第{page_num + 1}页：强制渲染模式")
+            else:
+                # 分析页面结构
+                page_analysis = analyze_page_structure(page)
+                strategy = page_analysis['strategy']
+                logger.info(f"第{page_num + 1}页策略: {strategy}, "
+                           f"文本长度: {page_analysis['text_length']}, "
+                           f"图片数: {page_analysis['image_count']}, "
+                           f"覆盖率: {page_analysis['image_coverage']:.2%}")
+
             strategies.append(strategy)
             page_info.strategy = strategy
 
-            logger.info(f"第{page_num + 1}页策略: {strategy}, "
-                       f"文本长度: {page_analysis['text_length']}, "
-                       f"图片数: {page_analysis['image_count']}, "
-                       f"覆盖率: {page_analysis['image_coverage']:.2%}")
-
             # 根据策略处理
-            if strategy == 'text_extraction':
+            if strategy == 'text_extraction' and not force_render:
                 # 直接使用提取的文本
+                page_analysis = analyze_page_structure(page)
                 all_text_parts.append(page_analysis['text'])
                 page_info.text = page_analysis['text']
 
-            elif strategy == 'full_page_render':
+            elif strategy == 'full_page_render' or force_render:
                 # 整页渲染
-                render_path = output_dir / f"page{page_num + 1}_full.png"
+                render_path = output_dir / f"page_{page_num + 1}_full.png"
                 render_full_page(page, str(render_path))
                 all_images.append(str(render_path))
                 page_info.image_path = str(render_path)
+                # 更新页面尺寸为渲染后的尺寸
+                page_info.width = int(page.rect.width * Config.PDF_RENDER_SCALE)
+                page_info.height = int(page.rect.height * Config.PDF_RENDER_SCALE)
 
             elif strategy == 'extract_images':
                 # 提取图片对象
@@ -308,6 +318,7 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
 
             elif strategy == 'mixed':
                 # 混合模式：文本 + 图片OCR
+                page_analysis = analyze_page_structure(page)
                 all_text_parts.append(page_analysis['text'])
                 page_info.text = page_analysis['text']
                 images = extract_images_from_page(page, doc, output_dir, page_num + 1)
@@ -318,7 +329,9 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
             page_infos.append(page_info)
 
         # 确定最终策略（基于所有页面的主要策略）
-        if all_images and all_text_parts:
+        if force_render:
+            result.strategy = 'full_page_render'
+        elif all_images and all_text_parts:
             result.strategy = 'mixed'
         elif all_text_parts and not all_images:
             result.strategy = 'text_extraction'
@@ -339,6 +352,7 @@ def process_pdf(pdf_path: str, output_dir: str = None) -> PdfProcessResult:
             'strategies_per_page': strategies,
             'text_pages': sum(1 for s in strategies if s in ('text_extraction', 'mixed')),
             'image_pages': sum(1 for s in strategies if s in ('full_page_render', 'extract_images', 'mixed')),
+            'force_render': force_render
         }
 
         logger.info(f"PDF处理完成: 策略={result.strategy}, "
