@@ -21,6 +21,7 @@ createApp({
       isPdf: false,
       currentFile: null,
       filePath: '',  // 保存临时文件路径（imgpath 或 pdfpath）
+      isEmbedding: false,  // 正在嵌入PDF的标记
       // 高级参数
       params: {
         removeWatermark: false,
@@ -334,11 +335,18 @@ createApp({
 
     // 嵌入并下载PDF
     async embedAndDownloadPdf() {
+      // 防止重复点击
+      if (this.isEmbedding) {
+        this.showToast('正在处理中，请稍候...', 'info');
+        return;
+      }
+
       if (!this.filePath) {
         this.showToast('没有可用的文件路径', 'error');
         return;
       }
 
+      this.isEmbedding = true;  // 标记开始处理
       this.loading = true;
       this.loadingText = '正在生成PDF...';
 
@@ -415,6 +423,7 @@ createApp({
         console.error('生成PDF失败:', error);
         this.showToast(error.message || '生成PDF失败', 'error');
       } finally {
+        this.isEmbedding = false;  // 恢复按钮状态
         this.loading = false;
       }
     },

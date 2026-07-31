@@ -104,13 +104,21 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
                 logger.debug(f"[embed_text_to_image] 文本块 {i} 尺寸无效: {width}x{height}")
                 continue
 
-            # 计算字体大小（使用更小的值）
-            fontsize = max(height * 0.5, 4)  # 至少 4pt
+            # 计算合适的字体大小
+            # 根据文本块的高度和宽度来估算字体大小
+            fontsize = height * 0.9  # 使用较大的比例
+
+            # 确保字体大小合理
+            if fontsize < 4:
+                fontsize = 4
+            elif fontsize > 100:
+                fontsize = 100
 
             try:
-                # 使用 insert_text 而不是 insert_textbox
-                # insert_text 更简单，不受矩形约束
-                point = fitz.Point(left, top + height * 0.8)  # 基线位置
+                # 使用 insert_text
+                # 基线位置：左下角（文字的底部基线）
+                # PyMuPDF 的文本基线在底部，所以 y 坐标应该是 bottom
+                point = fitz.Point(left, bottom)
 
                 rc = page.insert_text(
                     point,
@@ -123,7 +131,7 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
                 )
 
                 embedded_count += 1
-                logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}")
+                logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}, 位置: ({left}, {bottom}), 字体: {fontsize:.1f}")
 
             except Exception as e:
                 logger.warning(f"[embed_text_to_image] 文本块 {i} 嵌入异常: {text[:20]}, 错误: {e}")
@@ -209,11 +217,18 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                     continue
 
                 # 计算字体大小
-                fontsize = max(block_height * 0.5, 4)
+                fontsize = block_height * 0.9
+
+                # 确保字体大小合理
+                if fontsize < 4:
+                    fontsize = 4
+                elif fontsize > 100:
+                    fontsize = 100
 
                 try:
                     # 使用 insert_text
-                    point = fitz.Point(left, top + block_height * 0.8)
+                    # 基线位置：左下角
+                    point = fitz.Point(left, bottom)
 
                     page.insert_text(
                         point,

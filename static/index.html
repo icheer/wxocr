@@ -749,8 +749,11 @@
           <div class="panel">
             <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
               <h3 class="panel-title">识别结果</h3>
-              <button class="pdf-btn" @click="embedAndDownloadPdf" :disabled="!displayResults.length">
-                嵌入并下载PDF
+              <button
+                class="pdf-btn"
+                @click="embedAndDownloadPdf"
+                :disabled="!displayResults.length || loading || isEmbedding">
+                {{ isEmbedding ? '生成中...' : '嵌入并下载PDF' }}
               </button>
             </div>
             <div class="panel-body" style="display:flex;flex-direction:column;padding:16px;">
