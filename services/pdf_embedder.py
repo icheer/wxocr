@@ -28,6 +28,44 @@ def _is_chinese_char(char):
             0xFF00 <= code <= 0xFFEF)        # 全角ASCII和标点
 
 
+def _split_text_by_language(text):
+    """
+    将文本按中文和非中文分段
+
+    Returns:
+        list of (text_segment, is_chinese)
+    """
+    if not text:
+        return []
+
+    segments = []
+    current_segment = ""
+    current_is_chinese = None
+
+    for char in text:
+        is_chinese = _is_chinese_char(char)
+
+        if current_is_chinese is None:
+            # 第一个字符
+            current_segment = char
+            current_is_chinese = is_chinese
+        elif is_chinese == current_is_chinese:
+            # 同类型字符，追加
+            current_segment += char
+        else:
+            # 类型变化，保存当前段落，开始新段落
+            if current_segment:
+                segments.append((current_segment, current_is_chinese))
+            current_segment = char
+            current_is_chinese = is_chinese
+
+    # 保存最后一个段落
+    if current_segment:
+        segments.append((current_segment, current_is_chinese))
+
+    return segments
+
+
 def _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize):
     """
     使用混合字体嵌入文本（中文用china-s，非中文用helv）
@@ -82,41 +120,6 @@ def _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize):
     except Exception as e:
         logger.warning(f"嵌入文本失败: {text[:20]}..., 错误: {e}")
         return False
-    """
-    将文本按中文和非中文分段
-
-    Returns:
-        list of (text_segment, is_chinese)
-    """
-    if not text:
-        return []
-
-    segments = []
-    current_segment = ""
-    current_is_chinese = None
-
-    for char in text:
-        is_chinese = _is_chinese_char(char)
-
-        if current_is_chinese is None:
-            # 第一个字符
-            current_segment = char
-            current_is_chinese = is_chinese
-        elif is_chinese == current_is_chinese:
-            # 同类型字符，追加
-            current_segment += char
-        else:
-            # 类型变化，保存当前段落，开始新段落
-            if current_segment:
-                segments.append((current_segment, current_is_chinese))
-            current_segment = char
-            current_is_chinese = is_chinese
-
-    # 保存最后一个段落
-    if current_segment:
-        segments.append((current_segment, current_is_chinese))
-
-    return segments
 
 
 def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: str):
