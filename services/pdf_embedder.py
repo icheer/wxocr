@@ -280,10 +280,10 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str, app
 
             # 【关键】如果 apply_preprocessing=true 且有预处理后的图片，替换页面背景
             if apply_preprocessing and page_data.get('processed_image_path'):
-                processed_img_path = page_data['processed_image_path']
-                if Path(processed_img_path).exists():
+                processed_image_path = page_data['processed_image_path']
+                if Path(processed_image_path).exists():
                     try:
-                        logger.info(f"页码 {page_num}: 使用预处理图片替换背景: {processed_img_path}")
+                        logger.info(f"页码 {page_num}: 使用预处理图片替换背景: {processed_image_path}")
 
                         # 获取页面矩形
                         page_rect = page.rect
@@ -292,13 +292,13 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str, app
                         page.clean_contents()
 
                         # 插入预处理后的图片作为背景
-                        page.insert_image(page_rect, filename=processed_img_path)
+                        page.insert_image(page_rect, filename=processed_image_path)
 
                         logger.info(f"页码 {page_num}: 背景替换成功")
                     except Exception as e:
                         logger.error(f"页码 {page_num}: 替换背景失败: {e}")
                 else:
-                    logger.warning(f"页码 {page_num}: 预处理图片不存在: {processed_img_path}")
+                    logger.warning(f"页码 {page_num}: 预处理图片不存在: {processed_image_path}")
 
             # 获取 OCR 返回的页面尺寸（可能是放大后的）
             ocr_width = float(page_data.get('width', 0))

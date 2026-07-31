@@ -243,6 +243,9 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
                 result['data']['height'] = metadata.get('height', 0)
                 result['data']['imgpath'] = str(input_path)  # 返回图片路径
                 result['data']['ocr_response'] = metadata.get('ocr_response', [])
+                # 添加预处理图片路径（如果有）- 使用与 PDF 模式一致的字段名
+                if metadata.get('processed_image_path'):
+                    result['data']['processed_image_path'] = metadata.get('processed_image_path')
 
             # 清理旧的临时文件
             cleanup_old_temp_files(temp_dir, keep_recent=Config.TEMP_FILE_RETENTION)
@@ -421,8 +424,8 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
         'height': ocr_result.height,
         'imgpath': ocr_result.imgpath,
         'ocr_response': ocr_result.details,
-        # 新增：保存预处理后的图片路径（如果有）
-        'processed_imgpath': processed_path
+        # 新增：保存预处理后的图片路径（如果有）- 统一使用 processed_image_path
+        'processed_image_path': processed_path
     }
 
     return ocr_result.text, metadata
@@ -726,9 +729,9 @@ def ocr_and_embed():
 
                 # 根据 apply_preprocessing 参数决定使用哪个图片
                 embed_image_path = str(input_path)
-                if apply_preprocessing and metadata.get('processed_imgpath'):
+                if apply_preprocessing and metadata.get('processed_image_path'):
                     # 使用预处理后的图片（水印已去除）
-                    processed_path = Path(metadata['processed_imgpath'])
+                    processed_path = Path(metadata['processed_image_path'])
                     if processed_path.exists():
                         embed_image_path = str(processed_path)
                         logger.info(f"使用预处理后的图片进行嵌入: {embed_image_path}")

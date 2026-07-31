@@ -323,9 +323,9 @@ createApp({
         this.fullText = data.text || '';
         this.filePath = data.imgpath || '';  // 保存图片路径
 
-        // 图片模式：优先使用预处理后的图片
-        if (data.processed_imgpath) {
-          const filename = data.processed_imgpath.split('/').pop();
+        // 图片模式：优先使用预处理后的图片（使用与 PDF 一致的字段名）
+        if (data.processed_image_path) {
+          const filename = data.processed_image_path.split('/').pop();
           const serverImageUrl = `/api/temp/${filename}${this.apiKey ? '?api_key=' + this.apiKey : ''}`;
 
           // 使用服务端预处理图片替换本地图片
