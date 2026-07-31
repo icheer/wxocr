@@ -578,7 +578,7 @@ docker-compose up -d
 | `MAX_PDF_PAGES` | 50 | PDF 最大页数 |
 | `MAX_CONCURRENT_TASKS` | 3 | 最大并发任务数 |
 | `TEMP_DIR` | ./temp | 临时文件目录 |
-| `TEMP_FILE_RETENTION` | 30 | 保留的临时文件数量 |
+| `TEMP_FILE_RETENTION` | 200 | 保留的临时文件数量 |
 | `LOG_LEVEL` | INFO | 日志级别 |
 | `WATERMARK_TOLERANCE` | 40 | 默认水印容差 |
 | `DESKEW_THRESHOLD` | 1.0 | 纠偏角度阈值（度） |
@@ -597,7 +597,7 @@ export API_KEY=your_secure_secret_key_here
 export LOG_LEVEL=WARNING
 export MAX_CONCURRENT_TASKS=10
 export MAX_FILE_SIZE_MB=50
-export TEMP_FILE_RETENTION=50
+export TEMP_FILE_RETENTION=500
 python app.py
 ```
 
