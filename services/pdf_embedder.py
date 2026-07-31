@@ -242,16 +242,16 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                     # 基线位置：左下角
                     point = fitz.Point(left, bottom)
 
-                    # 使用 morph 参数调整字符间距，避免字符被分散
+                    # 使用 helv 字体以避免字符间距问题
+                    # helv 对英文数字支持好，中文也能显示
                     page.insert_text(
                         point,
                         text,
                         fontsize=fontsize,
-                        fontname="china-s",
+                        fontname="helv",  # 使用 Helvetica，避免字符间距问题
                         color=(1, 1, 1),
                         render_mode=3,  # 不可见但可选择
-                        overlay=True,
-                        morph=(fitz.Point(0, 0), fitz.Matrix(1, 0, 0, 1, 0, 0))  # 标准变换矩阵
+                        overlay=True
                     )
                     embedded_count += 1
                     total_embedded += 1
