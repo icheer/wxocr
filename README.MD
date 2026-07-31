@@ -53,10 +53,6 @@
 
 ---
 
-![demo](./images/demo.png)
-
----
-
 ## 快速开始
 
 ### 方式一：Docker（推荐）
@@ -110,7 +106,7 @@ python app.py
 
 访问 `http://localhost:5000` 使用可视化界面：
 
-![Web UI](docs/images/web-ui-preview.png)
+![demo](./images/demo.png)
 
 **功能演示：**
 - 📤 **上传文件** - 支持点击、拖拽、粘贴（Ctrl+V）三种方式
