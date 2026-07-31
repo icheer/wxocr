@@ -29,6 +29,16 @@
 - ✅ **图片纠偏** - 自动检测并纠正扫描件倾斜
 - ✅ **并发控制** - 限流机制保护服务稳定性
 - ✅ **RESTful API** - 标准 HTTP 接口，易于集成
+- ✅ **API 认证** - 可选的 Bearer Token 认证机制
+
+### 🎨 Web 界面
+
+- ✅ **可视化交互** - 现代化 Web UI，支持拖拽/粘贴上传
+- ✅ **实时预览** - 图片/PDF 预览，文本块可视化标注
+- ✅ **文本编辑** - 支持对识别结果进行在线修订
+- ✅ **智能管理** - 文本块删除/还原，逻辑删除标记
+- ✅ **PDF 嵌入** - 将修订后的文本嵌入原文件，生成可搜索 PDF
+- ✅ **高级参数** - 水印去除、颜色容差、纠偏等参数可视化配置
 
 ### 🚀 技术亮点
 
@@ -37,6 +47,9 @@
 - **容器化部署** - Docker 一键启动，跨平台支持
 - **模块化设计** - 清晰的代码结构，易于扩展和维护
 - **完整的错误处理** - 统一的错误响应格式和日志记录
+- **交互式 Web UI** - Vue 3 + PDF.js 实现的现代化界面
+- **文本层嵌入** - 生成带隐藏文本层的可搜索 PDF
+- **智能文件管理** - 自动清理临时文件，保留最近 30 个
 
 ---
 
@@ -51,7 +64,10 @@ docker pull icheerme/wxocr
 # 2. 运行容器
 docker run -d -p 5000:5000 --name wxocr icheerme/wxocr
 
-# 3. 测试服务
+# 3. 访问 Web 界面
+# 浏览器打开: http://localhost:5000
+
+# 4. 测试 API
 curl http://localhost:5000/api/v1/health
 ```
 
@@ -68,29 +84,54 @@ pip install -r requirements.txt
 # 3. 启动服务
 python app.py
 
-# 4. 测试服务
-curl http://localhost:5000/api/v1/health
+# 4. 访问服务
+# Web 界面: http://localhost:5000
+# API 端点: http://localhost:5000/api/v1/ocr
 ```
+
+### Web 界面使用
+
+1. **上传文件** - 点击虚线框、拖拽文件或 Ctrl+V 粘贴
+2. **配置参数** - 设置水印去除、颜色容差、纠偏等选项
+3. **查看结果** - 左侧预览原文件，右侧显示识别结果
+4. **编辑文本** - 点击表格中的文本进行修订
+5. **管理内容** - 删除/还原不需要的文本块
+6. **导出 PDF** - 点击"嵌入并下载PDF"生成可搜索文档
 
 ---
 
 ## 使用示例
 
-### 基本图片识别
+### Web 界面
+
+访问 `http://localhost:5000` 使用可视化界面：
+
+![Web UI](docs/images/web-ui-preview.png)
+
+**功能演示：**
+- 📤 **上传文件** - 支持点击、拖拽、粘贴（Ctrl+V）三种方式
+- 🎨 **可视化预览** - 图片/PDF 预览，蓝色框标注文本块
+- ✏️ **在线编辑** - 点击文本块直接修改内容
+- 🗑️ **智能管理** - 删除不需要的文本块（逻辑删除，可还原）
+- 📄 **生成 PDF** - 将修订后的文本嵌入原文件，生成可搜索 PDF
+
+### API 调用
+
+#### 基本图片识别
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/ocr \
   -F "file=@image.png"
 ```
 
-### PDF 文档识别
+#### PDF 文档识别
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/ocr \
   -F "file=@document.pdf"
 ```
 
-### 去除水印
+#### 去除水印
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/ocr \
@@ -99,7 +140,7 @@ curl -X POST http://localhost:5000/api/v1/ocr \
   -F "watermark_color=#ffd9d9"
 ```
 
-### 纠正倾斜
+#### 纠正倾斜
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/ocr \
@@ -107,25 +148,95 @@ curl -X POST http://localhost:5000/api/v1/ocr \
   -F "deskew=true"
 ```
 
+#### 带认证的请求
+
+```bash
+# 设置环境变量
+export API_KEY=your_secret_key
+
+# 启动服务后，需要在请求中携带 Bearer Token
+curl -X POST http://localhost:5000/api/v1/ocr \
+  -H "Authorization: Bearer your_secret_key" \
+  -F "file=@image.png"
+```
+
+#### 嵌入文本生成 PDF
+
+```bash
+curl -X POST http://localhost:5000/api/v1/embed \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your_secret_key" \
+  -d '{
+    "file_path": "temp/xxx.png",
+    "file_type": "image",
+    "ocr_response": [
+      {
+        "text": "修订后的文本",
+        "rate": 0.95,
+        "left": 10.0,
+        "top": 20.0,
+        "right": 200.0,
+        "bottom": 50.0
+      }
+    ]
+  }' \
+  --output embedded.pdf
+```
+
 ### Python 客户端
 
 ```python
 import requests
 
-def ocr_file(file_path):
+def ocr_file(file_path, api_key=None):
     url = 'http://localhost:5000/api/v1/ocr'
+    headers = {}
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+    
     with open(file_path, 'rb') as f:
-        response = requests.post(url, files={'file': f})
+        response = requests.post(url, files={'file': f}, headers=headers)
     
     result = response.json()
     if result['success']:
-        return result['data']['text']
+        return result['data']
     else:
-        raise Exception(result['error']['message'])
+        raise Exception(result.get('message', 'OCR failed'))
 
-# 使用
-text = ocr_file('document.pdf')
-print(text)
+def embed_text_to_pdf(file_path, file_type, ocr_data, api_key=None):
+    """将编辑后的文本嵌入到文件中生成 PDF"""
+    url = 'http://localhost:5000/api/v1/embed'
+    headers = {'Content-Type': 'application/json'}
+    if api_key:
+        headers['Authorization'] = f'Bearer {api_key}'
+    
+    payload = {
+        'file_path': file_path,
+        'file_type': file_type,
+        'ocr_response': ocr_data if file_type == 'image' else None,
+        'pages': ocr_data if file_type == 'pdf' else None
+    }
+    
+    response = requests.post(url, json=payload, headers=headers)
+    
+    if response.status_code == 200:
+        with open('output.pdf', 'wb') as f:
+            f.write(response.content)
+        return 'output.pdf'
+    else:
+        raise Exception(response.json().get('message', 'Embed failed'))
+
+# 使用示例
+data = ocr_file('document.pdf')
+print(data['text'])
+
+# 编辑文本后嵌入生成 PDF
+embedded_pdf = embed_text_to_pdf(
+    file_path=data['pdfpath'],
+    file_type='pdf',
+    ocr_data=data['pages']
+)
+print(f'生成的 PDF: {embedded_pdf}')
 ```
 
 ---
@@ -136,10 +247,26 @@ print(text)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/` | Web 界面主页 |
 | GET | `/api/v1/health` | 健康检查 |
 | POST | `/api/v1/ocr` | OCR 识别 |
+| POST | `/api/v1/embed` | 嵌入文本生成 PDF |
 
-### 参数
+### 认证
+
+API 支持可选的 Bearer Token 认证：
+
+```bash
+# 设置环境变量启用认证
+export API_KEY=your_secret_key
+
+# 请求时携带 Authorization 头
+curl -H "Authorization: Bearer your_secret_key" ...
+```
+
+**注意**：如果未设置 `API_KEY` 环境变量，则认证功能不启用，所有请求都可以直接访问。
+
+### OCR 接口参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -150,19 +277,43 @@ print(text)
 | `deskew` | Boolean | ❌ | 是否纠正倾斜 |
 | `output_format` | String | ❌ | 输出格式（plain/structured） |
 
+### Embed 接口参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file_path` | String | ✅ | 临时文件路径（来自 OCR 响应） |
+| `file_type` | String | ✅ | 文件类型（image/pdf） |
+| `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
+| `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
+
 ### 响应格式
+
+#### OCR 接口响应（图片）
 
 ```json
 {
   "success": true,
   "data": {
     "text": "识别到的文本内容...",
+    "width": 1920,
+    "height": 1080,
+    "imgpath": "temp/xxx.png",
+    "ocr_response": [
+      {
+        "text": "文本块内容",
+        "rate": 0.95,
+        "left": 10.0,
+        "top": 20.0,
+        "right": 200.0,
+        "bottom": 50.0
+      }
+    ],
     "metadata": {
-      "file_type": "pdf",
-      "page_count": 5,
-      "processing_method": "text_extraction",
+      "file_type": "image",
+      "page_count": 1,
+      "processing_method": "full_page_render",
       "preprocessed": {
-        "watermark_removed": true,
+        "watermark_removed": false,
         "deskewed": false
       },
       "processing_time_ms": 3240
@@ -170,6 +321,51 @@ print(text)
   }
 }
 ```
+
+#### OCR 接口响应（PDF）
+
+```json
+{
+  "success": true,
+  "data": {
+    "text": "完整文本内容...",
+    "pdfpath": "temp/xxx.pdf",
+    "pages": [
+      {
+        "page_number": 1,
+        "width": 595.0,
+        "height": 842.0,
+        "text": "第一页文本",
+        "strategy": "text_extraction",
+        "ocr_response": [
+          {
+            "text": "文本块",
+            "rate": 0.98,
+            "left": 50.0,
+            "top": 100.0,
+            "right": 300.0,
+            "bottom": 150.0
+          }
+        ]
+      }
+    ],
+    "metadata": {
+      "file_type": "pdf",
+      "page_count": 5,
+      "processing_method": "mixed",
+      "preprocessed": {
+        "watermark_removed": true,
+        "deskewed": false
+      },
+      "processing_time_ms": 8560
+    }
+  }
+}
+```
+
+#### Embed 接口响应
+
+返回 PDF 文件（二进制流），Content-Type 为 `application/pdf`
 
 **完整文档**: [docs/api-spec.md](docs/api-spec.md)
 
@@ -245,10 +441,12 @@ docker-compose up -d
 |------|--------|------|
 | `HOST` | 0.0.0.0 | 服务监听地址 |
 | `PORT` | 5000 | 服务端口 |
+| `API_KEY` | 无 | API 认证密钥（可选，不设置则不启用认证） |
 | `MAX_FILE_SIZE_MB` | 20 | 最大文件大小（MB） |
 | `MAX_PDF_PAGES` | 50 | PDF 最大页数 |
 | `MAX_CONCURRENT_TASKS` | 3 | 最大并发任务数 |
 | `TEMP_DIR` | ./temp | 临时文件目录 |
+| `TEMP_FILE_RETENTION` | 30 | 保留的临时文件数量 |
 | `LOG_LEVEL` | INFO | 日志级别 |
 | `WATERMARK_TOLERANCE` | 40 | 默认水印容差 |
 | `DESKEW_THRESHOLD` | 1.0 | 纠偏角度阈值（度） |
@@ -262,10 +460,12 @@ export LOG_LEVEL=DEBUG
 export MAX_CONCURRENT_TASKS=2
 python app.py
 
-# 生产环境
+# 生产环境（带认证）
+export API_KEY=your_secure_secret_key_here
 export LOG_LEVEL=WARNING
 export MAX_CONCURRENT_TASKS=10
 export MAX_FILE_SIZE_MB=50
+export TEMP_FILE_RETENTION=50
 python app.py
 ```
 
@@ -276,14 +476,19 @@ python app.py
 ```
 wxocr/
 ├── api/                    # API 路由和验证
-│   ├── routes.py          # 路由定义
+│   ├── routes.py          # 路由定义（OCR + Embed）
 │   ├── validators.py      # 参数验证
+│   ├── auth.py            # API 认证
 │   └── error_handlers.py  # 错误处理
 ├── services/              # 服务层
 │   ├── pdf_processor.py   # PDF 处理
+│   ├── pdf_embedder.py    # PDF 文本嵌入
 │   ├── image_processor.py # 图片预处理
 │   ├── ocr_service.py     # OCR 服务
 │   └── task_manager.py    # 任务管理
+├── static/                # Web 前端资源
+│   ├── index.html         # Web UI 主页
+│   └── app.js             # Vue 3 应用逻辑
 ├── utils/                 # 工具函数
 │   ├── watermark_remover.py  # 水印去除
 │   ├── deskew_helper.py      # 图片纠偏
@@ -307,13 +512,21 @@ wxocr/
 
 ## 技术栈
 
+### 后端
 - **Web 框架**: Flask 3.0+
 - **PDF 处理**: PyMuPDF 1.23+
-- **图像处理**: OpenCV 4.8+
+- **PDF 生成**: ReportLab 4.0+ / PyPDF2 3.0+
+- **图像处理**: OpenCV 4.8+ (headless)
 - **数组计算**: NumPy 1.24+
 - **图片纠偏**: deskew 1.5+ / scikit-image 0.21+
 - **OCR 引擎**: WeChat OCR (wcocr)
 - **容器化**: Docker
+
+### 前端
+- **框架**: Vue 3.4+ (CDN)
+- **PDF 渲染**: PDF.js 3.11+
+- **通知提示**: Toastify.js 1.12+
+- **样式**: 原生 CSS (Grid + Flexbox)
 
 ---
 
@@ -393,6 +606,26 @@ A: 服务器繁忙，请稍后重试。可以增加 `MAX_CONCURRENT_TASKS` 配�
 ### Q: Windows 本地测试为什么返回模拟数据？
 
 A: wcocr 是 Linux 程序，在 Windows 上会进入测试模式。实际 OCR 功能需要在 Docker 中测试。
+
+### Q: Web 界面可以编辑识别结果吗？
+
+A: 可以！点击表格中的文本块即可直接编辑。编辑后可以点击"嵌入并下载PDF"生成包含修订文本的可搜索 PDF。
+
+### Q: 什么是"文本嵌入"功能？
+
+A: 将识别到的文本以不可见文本层的形式嵌入到原始图片或PDF中，生成可搜索、可复制的PDF文档，同时保留原始视觉效果。
+
+### Q: 临时文件会自动清理吗？
+
+A: 会的。系统会保留最近 30 个临时文件（可通过 `TEMP_FILE_RETENTION` 配置），超过数量的旧文件会自动删除。
+
+### Q: 如何启用 API 认证？
+
+A: 设置环境变量 `API_KEY=your_secret_key`，启动服务后，所有 API 请求需要在 Header 中携带 `Authorization: Bearer your_secret_key`。Web 界面会提示输入 API Key。
+
+### Q: 为什么提示"临时文件已过期"？
+
+A: OCR 识别后的临时文件有数量限制（默认保留 30 个），超过限制的旧文件会被自动清理。如果您在识别后等待时间过长，或者系统处理了大量其他文件，临时文件可能已被清理。请重新上传文件进行 OCR 识别。
 
 ---
 

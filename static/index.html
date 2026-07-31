@@ -423,6 +423,27 @@
       transform: scale(0.96);
     }
 
+    .pdf-btn {
+      padding: 6px 16px;
+      background: #67c23a;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .pdf-btn:hover:not(:disabled) {
+      background: #85ce61;
+    }
+
+    .pdf-btn:disabled {
+      background: #c0c4cc;
+      cursor: not-allowed;
+    }
+
     .table-wrapper {
       flex: 1;
       overflow-y: auto;
@@ -468,6 +489,77 @@
 
     .result-table tbody tr.highlight {
       background: #ecf5ff;
+    }
+
+    .result-table tbody tr.deleted {
+      background: #f5f7fa;
+      color: #909399;
+      opacity: 0.6;
+    }
+
+    .result-table tbody tr.deleted .editable-text {
+      text-decoration: line-through;
+      cursor: not-allowed;
+    }
+
+    .editable-cell {
+      padding: 0 !important;
+    }
+
+    .editable-text {
+      padding: 10px 12px;
+      min-height: 38px;
+      outline: none;
+      cursor: text;
+      transition: background 0.2s;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .editable-text:focus {
+      background: #ecf5ff;
+      border: 1px solid #409EFF;
+      border-radius: 2px;
+    }
+
+    .result-table tbody tr.deleted .editable-text {
+      pointer-events: none;
+    }
+
+    .action-cell {
+      text-align: center;
+    }
+
+    .action-btn {
+      padding: 4px 12px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .delete-btn {
+      background: #f56c6c;
+      color: white;
+    }
+
+    .delete-btn:hover {
+      background: #f78989;
+    }
+
+    .restore-btn {
+      background: #409EFF;
+      color: white;
+    }
+
+    .restore-btn:hover {
+      background: #66b1ff;
+    }
+
+    .action-btn:active {
+      transform: scale(0.95);
     }
 
     .copyable {
@@ -655,14 +747,17 @@
             </div>
           </div>
           <div class="panel">
-            <div class="panel-header">
+            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
               <h3 class="panel-title">识别结果</h3>
+              <button class="pdf-btn" @click="embedAndDownloadPdf" :disabled="!displayResults.length">
+                嵌入并下载PDF
+              </button>
             </div>
             <div class="panel-body" style="display:flex;flex-direction:column;padding:16px;">
               <div class="text-section">
                 <div class="text-display">
                   <button class="copy-btn" @click="copyAllText">复制全部</button>
-                  <pre class="text-content">{{ fullText || '暂无识别结果' }}</pre>
+                  <pre class="text-content">{{ dynamicFullText || '暂无识别结果' }}</pre>
                 </div>
               </div>
               <div class="table-wrapper">
@@ -673,17 +768,29 @@
                       <th v-if="isPdf" style="width:60px;">页码</th>
                       <th>文本内容</th>
                       <th style="width:80px;">置信度</th>
+                      <th style="width:100px;">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(item, index) in displayResults" :key="'result-' + index"
-                      :class="{ highlight: hoveredIndex === item.id }" @mouseenter="hoveredIndex = item.id"
+                      :class="{ highlight: hoveredIndex === item.id, deleted: item.deleted }"
+                      @mouseenter="hoveredIndex = item.id"
                       @mouseleave="hoveredIndex = -1">
                       <td>{{ index + 1 }}</td>
                       <td v-if="isPdf">{{ item.pageNumber }}</td>
-                      <td class="copyable" @click="copyText(item.text)">{{ item.text }}</td>
+                      <td class="editable-cell">
+                        <div
+                          contenteditable="true"
+                          @blur="updateText(item, $event.target.textContent)"
+                          @keydown.enter.prevent="$event.target.blur()"
+                          class="editable-text">{{ item.editedText || item.text }}</div>
+                      </td>
                       <td class="confidence" :class="{ low: item.rate < 0.7, 'very-low': item.rate < 0.5 }">{{
                         (item.rate * 100).toFixed(0) }}%</td>
+                      <td class="action-cell">
+                        <button v-if="!item.deleted" class="action-btn delete-btn" @click="deleteRow(item)">删除</button>
+                        <button v-else class="action-btn restore-btn" @click="restoreRow(item)">还原</button>
+                      </td>
                     </tr>
                   </tbody>
                 </table>

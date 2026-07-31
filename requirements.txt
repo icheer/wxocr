@@ -5,6 +5,8 @@ flask>=3.0.0
 
 # PDF处理
 PyMuPDF>=1.23.0
+PyPDF2>=3.0.0
+reportlab>=4.0.0
 
 # 图像处理 - 使用 headless 版本（无 GUI 支持，节省 ~200-300MB）
 opencv-python-headless>=4.8.0

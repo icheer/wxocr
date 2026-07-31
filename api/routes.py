@@ -234,19 +234,22 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
             # 如果是 PDF 文件，使用按页组织的数据
             if 'pages' in metadata:
                 result['data']['pages'] = metadata['pages']
+                result['data']['pdfpath'] = str(input_path)  # 返回 PDF 路径
             else:
                 # 图片文件，使用单页格式
                 result['data']['width'] = metadata.get('width', 0)
                 result['data']['height'] = metadata.get('height', 0)
-                result['data']['imgpath'] = metadata.get('imgpath', '')
+                result['data']['imgpath'] = str(input_path)  # 返回图片路径
                 result['data']['ocr_response'] = metadata.get('ocr_response', [])
+
+            # 清理旧的临时文件（保留最近30个）
+            cleanup_old_temp_files(temp_dir, keep_recent=30)
 
             return result
 
     finally:
-        # 清理临时文件
-        if Config.CLEANUP_TEMP_FILES:
-            cleanup_temp_files(temp_files)
+        # 不再立即清理临时文件，改为保留供后续 embed 使用
+        pass
 
 
 def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list) -> tuple:
@@ -419,3 +422,120 @@ def cleanup_temp_files(temp_files: list):
                     logger.debug(f"已清理临时文件: {file_path}")
         except Exception as e:
             logger.warning(f"清理临时文件失败 {file_path}: {e}")
+
+
+def cleanup_old_temp_files(temp_dir: Path, keep_recent: int = 30):
+    """
+    清理旧的临时文件，保留最近的N个文件
+
+    Args:
+        temp_dir: 临时文件目录
+        keep_recent: 保留最近的文件数量
+    """
+    try:
+        if not temp_dir.exists():
+            return
+
+        # 获取所有文件并按修改时间排序
+        files = []
+        for file_path in temp_dir.iterdir():
+            if file_path.is_file():
+                files.append((file_path, file_path.stat().st_mtime))
+
+        # 按修改时间降序排序
+        files.sort(key=lambda x: x[1], reverse=True)
+
+        # 删除超过保留数量的文件
+        if len(files) > keep_recent:
+            files_to_delete = files[keep_recent:]
+            for file_path, _ in files_to_delete:
+                try:
+                    file_path.unlink()
+                    logger.debug(f"已清理旧临时文件: {file_path}")
+                except Exception as e:
+                    logger.warning(f"清理旧临时文件失败 {file_path}: {e}")
+
+            logger.info(f"已清理 {len(files_to_delete)} 个旧临时文件，保留最近 {keep_recent} 个")
+
+    except Exception as e:
+        logger.error(f"清理旧临时文件时出错: {e}")
+
+
+@api_bp.route('/embed', methods=['POST'])
+@require_api_key
+def embed_text_to_pdf():
+    """
+    将OCR文本块嵌入到图片或PDF中，生成新的PDF文件
+
+    请求体（JSON）:
+    {
+        "file_path": "temp/xxx.png" or "temp/xxx.pdf",
+        "file_type": "image" or "pdf",
+        "ocr_response": [...],  // 图片模式
+        "pages": [...]  // PDF模式
+    }
+
+    Returns:
+        PDF文件下载
+    """
+    from flask import send_file
+    from config.settings import Config
+    from services.pdf_embedder import embed_text_to_image, embed_text_to_pdf
+
+    try:
+        data = request.get_json()
+
+        if not data:
+            return error_response(400, 'INVALID_REQUEST', '请求体不能为空')
+
+        file_path = data.get('file_path')
+        file_type = data.get('file_type')
+
+        if not file_path:
+            return error_response(400, 'MISSING_FILE_PATH', '缺少 file_path 参数')
+
+        # 检查文件是否存在
+        full_path = Path(file_path)
+        if not full_path.is_absolute():
+            full_path = Config.TEMP_DIR / file_path
+
+        if not full_path.exists():
+            return error_response(404, 'FILE_NOT_FOUND',
+                '临时文件已过期或不存在，请重新上传文件进行OCR识别')
+
+        # 生成输出PDF路径
+        output_filename = f"{uuid.uuid4()}_embedded.pdf"
+        output_path = Config.TEMP_DIR / output_filename
+
+        # 根据文件类型处理
+        if file_type == 'image':
+            ocr_response = data.get('ocr_response', [])
+            if not ocr_response:
+                return error_response(400, 'MISSING_OCR_DATA', '缺少 ocr_response 数据')
+
+            logger.info(f"嵌入文本到图片: {full_path}")
+            embed_text_to_image(str(full_path), ocr_response, str(output_path))
+
+        elif file_type == 'pdf':
+            pages = data.get('pages', [])
+            if not pages:
+                return error_response(400, 'MISSING_PAGES_DATA', '缺少 pages 数据')
+
+            logger.info(f"嵌入文本到PDF: {full_path}")
+            embed_text_to_pdf(str(full_path), pages, str(output_path))
+
+        else:
+            return error_response(400, 'INVALID_FILE_TYPE',
+                f'不支持的文件类型: {file_type}')
+
+        # 返回PDF文件
+        return send_file(
+            str(output_path),
+            as_attachment=True,
+            download_name=f"ocr_embedded_{int(time.time())}.pdf",
+            mimetype='application/pdf'
+        )
+
+    except Exception as e:
+        logger.error(f"嵌入文本失败: {str(e)}", exc_info=True)
+        return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(e)}')

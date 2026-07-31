@@ -20,6 +20,7 @@ createApp({
       hasFile: false,
       isPdf: false,
       currentFile: null,
+      filePath: '',  // 保存临时文件路径（imgpath 或 pdfpath）
       // 高级参数
       params: {
         removeWatermark: false,
@@ -39,7 +40,9 @@ createApp({
             results.push({
               ...result,
               id: `${page.pageNumber}-${idx}`,
-              pageNumber: page.pageNumber
+              pageNumber: page.pageNumber,
+              deleted: false,
+              editedText: result.text
             });
           });
         });
@@ -48,8 +51,36 @@ createApp({
         // 图片结果：添加 id
         return this.ocrResults.map((result, idx) => ({
           ...result,
-          id: idx
+          id: idx,
+          deleted: false,
+          editedText: result.text
         }));
+      }
+    },
+    dynamicFullText() {
+      // 根据表格内容动态拼合完整文本
+      if (this.isPdf) {
+        // 按页分组
+        const pageGroups = {};
+        this.displayResults.forEach(result => {
+          if (!result.deleted) {
+            if (!pageGroups[result.pageNumber]) {
+              pageGroups[result.pageNumber] = [];
+            }
+            pageGroups[result.pageNumber].push(result.editedText || result.text);
+          }
+        });
+        // 拼接，跨页保持空行
+        return Object.keys(pageGroups)
+          .sort((a, b) => a - b)
+          .map(pageNum => pageGroups[pageNum].join('\n'))
+          .join('\n\n');
+      } else {
+        // 图片结果
+        return this.displayResults
+          .filter(result => !result.deleted)
+          .map(result => result.editedText || result.text)
+          .join('\n');
       }
     }
   },
@@ -261,12 +292,14 @@ createApp({
           ocrResults: page.ocr_response || []
         }));
         this.fullText = this.pdfPages.map(p => p.text).join('\n\n');
+        this.filePath = data.pdfpath || '';  // 保存 PDF 路径
       } else {
         // 图片结果
         this.imageWidth = data.width || this.imageWidth;
         this.imageHeight = data.height || this.imageHeight;
         this.ocrResults = data.ocr_response || [];
         this.fullText = data.text || '';
+        this.filePath = data.imgpath || '';  // 保存图片路径
       }
     },
 
@@ -276,8 +309,110 @@ createApp({
     },
 
     copyAllText() {
-      this.copyToClipboard(this.fullText);
+      this.copyToClipboard(this.dynamicFullText);
       this.showToast('已复制全部文本', 'success');
+    },
+
+    // 编辑文本
+    updateText(result, newText) {
+      result.editedText = newText;
+    },
+
+    // 删除行
+    deleteRow(result) {
+      result.deleted = true;
+    },
+
+    // 还原行
+    restoreRow(result) {
+      result.deleted = false;
+    },
+
+    // 嵌入并下载PDF
+    async embedAndDownloadPdf() {
+      if (!this.filePath) {
+        this.showToast('没有可用的文件路径', 'error');
+        return;
+      }
+
+      this.loading = true;
+      this.loadingText = '正在生成PDF...';
+
+      try {
+        // 构建请求数据
+        const requestData = {
+          file_path: this.filePath,
+          file_type: this.isPdf ? 'pdf' : 'image'
+        };
+
+        if (this.isPdf) {
+          // PDF 模式：发送 pages 数组
+          requestData.pages = this.pdfPages.map(page => ({
+            page_number: page.pageNumber,
+            width: page.width,
+            height: page.height,
+            ocr_response: this.displayResults
+              .filter(r => r.pageNumber === page.pageNumber && !r.deleted)
+              .map(r => ({
+                text: r.editedText || r.text,
+                rate: r.rate,
+                left: r.left,
+                top: r.top,
+                right: r.right,
+                bottom: r.bottom
+              }))
+          }));
+        } else {
+          // 图片模式：发送 ocr_response 数组
+          requestData.ocr_response = this.displayResults
+            .filter(r => !r.deleted)
+            .map(r => ({
+              text: r.editedText || r.text,
+              rate: r.rate,
+              left: r.left,
+              top: r.top,
+              right: r.right,
+              bottom: r.bottom
+            }));
+        }
+
+        const headers = {
+          'Content-Type': 'application/json'
+        };
+        if (this.apiKey) {
+          headers['Authorization'] = `Bearer ${this.apiKey}`;
+        }
+
+        const response = await fetch('/api/v1/embed', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || '生成PDF失败');
+        }
+
+        // 下载PDF文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ocr_embedded_${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        this.showToast('PDF已生成并开始下载', 'success');
+
+      } catch (error) {
+        console.error('生成PDF失败:', error);
+        this.showToast(error.message || '生成PDF失败', 'error');
+      } finally {
+        this.loading = false;
+      }
     },
 
     copyToClipboard(text) {
