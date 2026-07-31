@@ -274,6 +274,7 @@ print(f'生成的 PDF: {embedded_pdf}')
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/ocr` | OCR 识别 |
 | POST | `/api/embed` | 嵌入文本生成 PDF |
+| POST | `/api/ocr-and-embed` | 一站式 OCR + 嵌入（直接生成可搜索PDF） |
 | GET | `/api/logs` | 查看服务端日志（需认证） |
 
 ### 认证
