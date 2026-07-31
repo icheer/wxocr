@@ -2,6 +2,7 @@
 Flask应用入口
 """
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 from config.settings import get_config, Config
 from utils.logger import setup_logger, get_logger
 from api.routes import api_bp
@@ -19,6 +20,12 @@ def create_app(config_name=None):
         Flask: Flask应用实例
     """
     app = Flask(__name__, static_folder='static', static_url_path='/static')
+
+    # 配置代理修复中间件，用于获取真实客户端IP
+    # x_for=1: 信任一个 X-Forwarded-For 代理
+    # x_proto=1: 信任一个 X-Forwarded-Proto 代理
+    # x_host=1: 信任一个 X-Forwarded-Host 代理
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # 加载配置
     config_class = get_config(config_name)

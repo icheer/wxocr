@@ -45,7 +45,8 @@ def ocr():
     try:
         # 解析请求参数
         params = OcrRequestParams()
-        logger.info(f"收到OCR请求: {params.to_dict()}")
+        client_ip = request.remote_addr
+        logger.info(f"收到OCR请求 [来自: {client_ip}]: {params.to_dict()}")
 
         # 检查是否为测试模式
         wcocr_available = current_app.config.get('WCOCR_AVAILABLE', False)
