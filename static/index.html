@@ -52,6 +52,28 @@
       font-size: 20px;
       font-weight: 600;
       margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      color: #606266;
+      text-decoration: none;
+      transition: color 0.3s;
+      line-height: 1;
+    }
+
+    .github-link:hover {
+      color: #409EFF;
+    }
+
+    .github-icon {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
     }
 
     .api-key-container {
@@ -812,7 +834,19 @@
 <body>
   <div id="app" v-cloak>
     <div class="top-bar">
-      <h1 class="page-title">WeChat OCR 识别服务</h1>
+      <h1 class="page-title">
+        WeChat OCR 识别服务
+        <a href="https://github.com/icheer/wxocr" target="_blank" rel="noopener noreferrer" class="github-link"
+          title="在 GitHub 上查看源码">
+          <svg class="github-icon" fill="currentColor" fill-rule="evenodd" viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg">
+            <title>GitHub</title>
+            <path
+              d="M12 0c6.63 0 12 5.276 12 11.79-.001 5.067-3.29 9.567-8.175 11.187-.6.118-.825-.25-.825-.56 0-.398.015-1.665.015-3.242 0-1.105-.375-1.813-.81-2.181 2.67-.295 5.475-1.297 5.475-5.822 0-1.297-.465-2.344-1.23-3.169.12-.295.54-1.503-.12-3.125 0 0-1.005-.324-3.3 1.209a11.32 11.32 0 00-3-.398c-1.02 0-2.04.133-3 .398-2.295-1.518-3.3-1.209-3.3-1.209-.66 1.622-.24 2.83-.12 3.125-.765.825-1.23 1.887-1.23 3.169 0 4.51 2.79 5.527 5.46 5.822-.345.294-.66.81-.765 1.577-.69.31-2.415.81-3.495-.973-.225-.354-.9-1.223-1.845-1.209-1.005.015-.405.56.015.781.51.28 1.095 1.327 1.23 1.666.24.663 1.02 1.93 4.035 1.385 0 .988.015 1.916.015 2.196 0 .31-.225.664-.825.56C3.303 21.374-.003 16.867 0 11.791 0 5.276 5.37 0 12 0z">
+            </path>
+          </svg>
+        </a>
+      </h1>
       <div class="api-key-container">
         <label class="api-key-label">API Key:</label>
         <input type="password" class="api-key-input" v-model="apiKey" @input="saveApiKey" placeholder="可选，如服务端配置">
@@ -898,9 +932,7 @@
           <div class="panel">
             <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
               <h3 class="panel-title">识别结果</h3>
-              <button
-                class="pdf-btn"
-                @click="embedAndDownloadPdf"
+              <button class="pdf-btn" @click="embedAndDownloadPdf"
                 :disabled="!displayResults.length || loading || isEmbedding">
                 {{ isEmbedding ? '生成中...' : '嵌入并下载PDF' }}
               </button>
@@ -926,16 +958,13 @@
                   <tbody>
                     <tr v-for="(item, index) in displayResults" :key="'result-' + index"
                       :class="{ highlight: hoveredIndex === item.id, deleted: item.deleted }"
-                      @mouseenter="hoveredIndex = item.id"
-                      @mouseleave="hoveredIndex = -1">
+                      @mouseenter="hoveredIndex = item.id" @mouseleave="hoveredIndex = -1">
                       <td>{{ index + 1 }}</td>
                       <td v-if="isPdf">{{ item.pageNumber }}</td>
                       <td class="editable-cell">
-                        <div
-                          contenteditable="true"
-                          @blur="updateText(item, $event.target.textContent)"
-                          @keydown.enter.prevent="$event.target.blur()"
-                          class="editable-text">{{ item.editedText || item.text }}</div>
+                        <div contenteditable="true" @blur="updateText(item, $event.target.textContent)"
+                          @keydown.enter.prevent="$event.target.blur()" class="editable-text">{{ item.editedText ||
+                          item.text }}</div>
                       </td>
                       <td class="confidence" :class="{ low: item.rate < 0.7, 'very-low': item.rate < 0.5 }">{{
                         (item.rate * 100).toFixed(0) }}%</td>
@@ -972,8 +1001,9 @@
         </div>
       </div>
     </div>
-    </div>
+  </div>
   </div>
   <script src="./app.js"></script>
 </body>
+
 </html>
