@@ -275,6 +275,7 @@ print(f'生成的 PDF: {embedded_pdf}')
 | POST | `/api/ocr` | OCR 识别 |
 | POST | `/api/embed` | 嵌入文本生成 PDF |
 | POST | `/api/ocr-and-embed` | 一站式 OCR + 嵌入（直接生成可搜索PDF） |
+| GET | `/api/temp/<filename>` | 获取临时文件（预处理图片预览，支持 query 参数鉴权） |
 | GET | `/api/logs` | 查看服务端日志（需认证） |
 
 ### 认证
@@ -417,6 +418,48 @@ curl -X GET http://localhost:5000/api/logs \
   }
 }
 ```
+
+### Temp 文件访问接口
+
+**端点**: `GET /api/temp/<filename>`
+
+**认证**: 可选的 query 参数鉴权（如已配置 `API_KEY`）
+
+**功能**: 获取临时文件（用于预览预处理后的图片）
+
+**适用场景**: Web 界面预览去水印/纠偏后的图片效果
+
+**安全特性**: 
+- 路径遍历保护（只能访问 TEMP_DIR 内的文件）
+- 支持 query 参数鉴权：`?api_key=xxx`
+- 自动设置正确的 MIME 类型
+
+**请求示例**:
+```bash
+# 无认证
+curl http://localhost:5000/api/temp/page_1_full.png_processed.png
+
+# 带认证（如果配置了 API_KEY）
+curl "http://localhost:5000/api/temp/page_1_full.png_processed.png?api_key=your_secret_key"
+```
+
+**支持的文件类型**: PNG, JPG, JPEG, GIF, BMP, WebP, PDF
+
+**错误响应示例**:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FILE_NOT_FOUND",
+    "message": "文件不存在或已过期"
+  }
+}
+```
+
+**使用说明**: 
+- 当 OCR 时启用了水印去除或图片纠偏，响应中会包含预处理图片的路径
+- Web 界面会自动使用此接口显示预处理后的效果
+- 临时文件会根据 `TEMP_FILE_RETENTION` 配置自动清理（默认保留 200 个）
 
 ### 响应格式
 

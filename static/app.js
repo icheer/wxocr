@@ -282,20 +282,32 @@ createApp({
     processOcrResult(data) {
       if (data.pages) {
         // PDF 多页结果
-        this.pdfPages = data.pages.map(page => ({
-          pageNumber: page.page_number,
-          width: page.width,
-          height: page.height,
-          text: page.text,
-          processedImagePath: page.processed_image_path,  // 保存预处理图片路径
-          ocrResults: (page.ocr_response || []).map((result, idx) => ({
-            ...result,
-            id: `${page.page_number}-${idx}`,
+        this.pdfPages = data.pages.map(page => {
+          // 优先使用预处理后的图片（如果存在）
+          let previewImageUrl = null;
+          if (page.processed_image_path) {
+            // 提取文件名（去掉路径前缀）
+            const filename = page.processed_image_path.split('/').pop();
+            // 构建服务端图片URL，带上API Key（如果有）
+            previewImageUrl = `/api/temp/${filename}${this.apiKey ? '?api_key=' + this.apiKey : ''}`;
+          }
+
+          return {
             pageNumber: page.page_number,
-            deleted: false,
-            editedText: result.text
-          }))
-        }));
+            width: page.width,
+            height: page.height,
+            text: page.text,
+            processedImagePath: page.processed_image_path,  // 保存预处理图片路径
+            previewImageUrl: previewImageUrl,  // 新增：预览图片URL
+            ocrResults: (page.ocr_response || []).map((result, idx) => ({
+              ...result,
+              id: `${page.page_number}-${idx}`,
+              pageNumber: page.page_number,
+              deleted: false,
+              editedText: result.text
+            }))
+          };
+        });
         this.fullText = this.pdfPages.map(p => p.text).join('\n\n');
         this.filePath = data.pdfpath || '';  // 保存 PDF 路径
       } else {
@@ -310,6 +322,17 @@ createApp({
         }));
         this.fullText = data.text || '';
         this.filePath = data.imgpath || '';  // 保存图片路径
+
+        // 图片模式：优先使用预处理后的图片
+        if (data.processed_imgpath) {
+          const filename = data.processed_imgpath.split('/').pop();
+          const serverImageUrl = `/api/temp/${filename}${this.apiKey ? '?api_key=' + this.apiKey : ''}`;
+
+          // 使用服务端预处理图片替换本地图片
+          this.imageUrl = serverImageUrl;
+          console.log('使用服务端预处理图片:', serverImageUrl);
+        }
+        // 否则继续使用本地图片（this.imageUrl 已在 processImage 中设置）
       }
     },
 

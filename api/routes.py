@@ -814,3 +814,77 @@ def get_logs():
     except Exception as e:
         logger.error(f"读取日志失败: {str(e)}", exc_info=True)
         return error_response(500, 'LOG_READ_FAILED', f'读取日志失败: {str(e)}')
+
+
+@api_bp.route('/temp/<path:filename>', methods=['GET'])
+def get_temp_file(filename):
+    """
+    获取临时文件（用于预览预处理后的图片）
+
+    支持 query 参数鉴权: ?api_key=xxx
+
+    Args:
+        filename: 文件名（相对于 TEMP_DIR 的路径）
+
+    Returns:
+        图片文件或错误响应
+    """
+    from flask import send_file
+    from config.settings import Config
+
+    try:
+        # 可选的 API Key 鉴权（通过 query 参数）
+        api_key = os.getenv('API_KEY')
+        if api_key:
+            provided_key = request.args.get('api_key', '')
+            if provided_key != api_key:
+                return error_response(403, 'FORBIDDEN', '无权访问此资源')
+
+        # 安全检查：防止路径遍历攻击
+        file_path = Config.TEMP_DIR / filename
+
+        # 确保请求的文件在 TEMP_DIR 内
+        try:
+            resolved_path = file_path.resolve()
+            temp_dir_resolved = Config.TEMP_DIR.resolve()
+
+            # 检查是否是 TEMP_DIR 的子路径
+            if not str(resolved_path).startswith(str(temp_dir_resolved)):
+                logger.warning(f"路径遍历攻击尝试: {filename}")
+                return error_response(403, 'FORBIDDEN', '非法路径')
+        except Exception as path_error:
+            logger.warning(f"路径解析失败: {filename}, 错误: {path_error}")
+            return error_response(400, 'INVALID_PATH', '无效的文件路径')
+
+        # 检查文件是否存在
+        if not file_path.exists():
+            return error_response(404, 'FILE_NOT_FOUND', '文件不存在或已过期')
+
+        # 检查是否是文件（不是目录）
+        if not file_path.is_file():
+            return error_response(403, 'FORBIDDEN', '只能访问文件')
+
+        # 根据文件扩展名确定 MIME 类型
+        file_ext = file_path.suffix.lower()
+        mime_types = {
+            '.png': 'image/png',
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.gif': 'image/gif',
+            '.bmp': 'image/bmp',
+            '.webp': 'image/webp',
+            '.pdf': 'application/pdf'
+        }
+        mimetype = mime_types.get(file_ext, 'application/octet-stream')
+
+        logger.info(f"返回临时文件: {filename}")
+
+        return send_file(
+            str(file_path),
+            mimetype=mimetype,
+            as_attachment=False  # 直接在浏览器中显示，不下载
+        )
+
+    except Exception as e:
+        logger.error(f"获取临时文件失败: {filename}, 错误: {str(e)}", exc_info=True)
+        return error_response(500, 'FILE_ACCESS_FAILED', f'文件访问失败: {str(e)}')

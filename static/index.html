@@ -380,6 +380,12 @@
       display: block;
     }
 
+    .pdf-page .pdf-preview-image {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
     .page-number {
       position: absolute;
       top: 10px;
@@ -919,7 +925,13 @@
               </div>
               <div v-if="isPdf" class="pdf-container">
                 <div v-for="page in pdfPages" :key="'page-' + page.pageNumber" class="pdf-page">
-                  <canvas :id="'pdf-canvas-' + page.pageNumber"></canvas>
+                  <!-- 优先显示预处理后的图片 -->
+                  <img v-if="page.previewImageUrl"
+                       :src="page.previewImageUrl"
+                       :alt="'第 ' + page.pageNumber + ' 页'"
+                       class="pdf-preview-image">
+                  <!-- 没有预处理图片时，使用 PDF.js 渲染 -->
+                  <canvas v-else :id="'pdf-canvas-' + page.pageNumber"></canvas>
                   <span class="page-number">第 {{ page.pageNumber }} 页</span>
                   <div v-for="(result, index) in page.ocrResults" :key="'pdf-box-' + page.pageNumber + '-' + index"
                     class="ocr-box" :class="{ highlight: hoveredIndex === page.pageNumber + '-' + index }"
