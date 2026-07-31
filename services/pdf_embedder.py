@@ -107,13 +107,9 @@ def _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize):
                 overlay=True
             )
 
-            # 估算文本宽度，更新 x 坐标
-            if is_chinese:
-                char_width = fontsize
-            else:
-                char_width = fontsize * 0.6
-
-            current_x += len(segment_text) * char_width
+            # 获取实际文本宽度，更新 x 坐标
+            actual_width = fitz.get_text_length(segment_text, fontname=fontname, fontsize=fontsize)
+            current_x += actual_width
 
         return True
 
