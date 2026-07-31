@@ -267,7 +267,7 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
     Returns:
         tuple: (文本内容, 元数据)
     """
-    from services.pdf_processor import process_pdf, render_pdf_page
+    from services.pdf_processor import process_pdf
     from services.image_processor import preprocess_image
     from services.ocr_service import ocr_image
     from config.settings import Config
