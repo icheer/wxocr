@@ -583,6 +583,137 @@ def embed_text_to_pdf():
         return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(e)}')
 
 
+@api_bp.route('/ocr-and-embed', methods=['POST'])
+@require_api_key
+@validate_file_upload
+def ocr_and_embed():
+    """
+    一站式接口：OCR识别并嵌入文本到PDF
+
+    直接从图片或影印版PDF生成带嵌入文本的PDF，适用于对扫描质量和OCR结果有信心的场景
+
+    支持图片和PDF文件
+
+    Returns:
+        PDF文件下载
+    """
+    from flask import send_file, current_app
+    from config.settings import Config
+    from services.pdf_embedder import embed_text_to_pdf, embed_text_to_image
+    import uuid
+
+    start_time = time.time()
+    temp_files = []
+
+    try:
+        # 解析请求参数
+        params = OcrRequestParams()
+        client_ip = get_client_ip()
+        logger.info(f"收到OCR-and-Embed请求 [来自: {client_ip}]: {params.to_dict()}")
+
+        # 检查是否为测试模式
+        wcocr_available = current_app.config.get('WCOCR_AVAILABLE', False)
+
+        if not wcocr_available:
+            return error_response(503, 'SERVICE_UNAVAILABLE',
+                'OCR服务不可用，请检查wcocr配置')
+
+        # 获取上传的文件
+        file = request.files['file']
+        filename = file.filename
+
+        # 检查文件类型
+        if not (is_pdf(filename) or is_image(filename)):
+            return error_response(400, 'INVALID_FILE_TYPE',
+                '不支持的文件类型，仅支持PDF和图片文件')
+
+        # 保存上传的文件
+        temp_dir = Config.TEMP_DIR
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+        file_ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        input_filename = f"{uuid.uuid4()}.{file_ext}"
+        input_path = temp_dir / input_filename
+        file.save(str(input_path))
+        temp_files.append(input_path)
+
+        logger.info(f"文件已保存: {input_path}")
+
+        # 步骤1：执行OCR识别
+        logger.info("=== 步骤1: 执行OCR识别 ===")
+        from services.task_manager import get_task_manager
+
+        task_manager = get_task_manager()
+        with task_manager.task_slot():
+            if is_pdf(filename):
+                # 处理PDF文件
+                final_text, metadata = process_pdf_file(
+                    str(input_path),
+                    params,
+                    temp_files
+                )
+                file_type = 'pdf'
+            else:
+                # 处理图片文件
+                final_text, metadata = process_image_file(
+                    str(input_path),
+                    params,
+                    temp_files
+                )
+                file_type = 'image'
+
+        logger.info(f"OCR识别完成，文件类型: {file_type}")
+
+        # 步骤2：嵌入文本到PDF
+        logger.info("=== 步骤2: 嵌入文本到PDF ===")
+        output_filename = f"{uuid.uuid4()}_embedded.pdf"
+        output_path = temp_dir / output_filename
+
+        try:
+            if file_type == 'pdf':
+                if 'pages' not in metadata:
+                    return error_response(500, 'OCR_FAILED', 'OCR识别失败，未获取到页面数据')
+
+                pages_data = metadata['pages']
+                logger.info(f"嵌入PDF，共 {len(pages_data)} 页")
+                embed_text_to_pdf(str(input_path), pages_data, str(output_path))
+            else:
+                # 图片模式
+                if 'ocr_response' not in metadata:
+                    return error_response(500, 'OCR_FAILED', 'OCR识别失败，未获取到文本块数据')
+
+                ocr_response = metadata['ocr_response']
+                logger.info(f"嵌入图片，共 {len(ocr_response)} 个文本块")
+                embed_text_to_image(str(input_path), ocr_response, str(output_path))
+
+            logger.info(f"文本嵌入完成: {output_path}")
+
+        except Exception as embed_error:
+            logger.error(f"嵌入失败: {embed_error}", exc_info=True)
+            return error_response(500, 'EMBED_FAILED', f'嵌入文本失败: {str(embed_error)}')
+
+        # 记录总耗时
+        total_time = int((time.time() - start_time) * 1000)
+        logger.info(f"=== OCR-and-Embed 完成，总耗时: {total_time}ms ===")
+
+        # 返回嵌入文本后的PDF文件
+        return send_file(
+            str(output_path),
+            as_attachment=True,
+            download_name=f"ocr_embedded_{int(time.time())}.pdf",
+            mimetype='application/pdf'
+        )
+
+    except Exception as e:
+        logger.error(f"OCR-and-Embed失败: {str(e)}", exc_info=True)
+        return error_response(500, 'PROCESS_FAILED', f'处理失败: {str(e)}')
+
+    finally:
+        # 清理临时文件（保留输出文件）
+        # 注意：输出文件会在发送后由Flask自动处理
+        pass
+
+
 @api_bp.route('/logs', methods=['GET'])
 @require_api_key
 def get_logs():

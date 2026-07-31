@@ -310,6 +310,51 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
 | `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
 
+### OCR-and-Embed 一站式接口
+
+**端点**: `POST /api/ocr-and-embed`
+
+**认证**: 需要 Bearer Token（如已配置 `API_KEY`）
+
+**功能**: 直接从图片或影印版PDF生成带嵌入文本的PDF（OCR识别 + 文本嵌入一步完成）
+
+**适用场景**: 对扫描质量和OCR识别结果有信心，希望一步到位获得可搜索PDF的场景
+
+**支持格式**: PDF 和图片文件（jpg, png, bmp 等）
+
+**请求示例（PDF）**:
+```bash
+curl -X POST http://localhost:5000/api/ocr-and-embed \
+  -H "Authorization: Bearer your_secret_key" \
+  -F "file=@document.pdf" \
+  -F "deskew=true" \
+  --output embedded_result.pdf
+```
+
+**请求示例（图片）**:
+```bash
+curl -X POST http://localhost:5000/api/ocr-and-embed \
+  -H "Authorization: Bearer your_secret_key" \
+  -F "file=@scan.jpg" \
+  -F "remove_watermark=true" \
+  --output embedded_result.pdf
+```
+
+**支持的参数**: 与 OCR 接口相同（`remove_watermark`、`watermark_color`、`watermark_tolerance`、`deskew` 等）
+
+**响应**: 直接返回嵌入文本后的PDF文件（`application/pdf`）
+
+**错误响应示例**:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_FILE_TYPE",
+    "message": "不支持的文件类型，仅支持PDF和图片文件"
+  }
+}
+```
+
 ### Logs 接口说明
 
 **端点**: `GET /api/logs`
