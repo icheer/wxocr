@@ -14,11 +14,74 @@ logger = get_logger(__name__)
 
 
 def _is_chinese_char(char):
-    """判断字符是否为中文字符"""
-    return '一' <= char <= '鿿'
+    """判断字符是否为中文字符（包括中文标点符号）"""
+    code = ord(char)
+    # CJK统一汉字: 4E00-9FFF
+    # CJK扩展A: 3400-4DBF
+    # CJK扩展B: 20000-2A6DF
+    # CJK标点符号: 3000-303F
+    # 全角ASCII、全角中英文标点: FF00-FFEF
+    return (0x4E00 <= code <= 0x9FFF or      # 基本汉字
+            0x3400 <= code <= 0x4DBF or      # 扩展A
+            0x20000 <= code <= 0x2A6DF or    # 扩展B
+            0x3000 <= code <= 0x303F or      # CJK符号和标点
+            0xFF00 <= code <= 0xFFEF)        # 全角ASCII和标点
 
 
-def _split_text_by_language(text):
+def _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize):
+    """
+    使用混合字体嵌入文本（中文用china-s，非中文用helv）
+
+    Args:
+        page: PyMuPDF页面对象
+        text: 要嵌入的文本
+        left: 起始x坐标
+        bottom: 基线y坐标
+        fontsize: 字体大小
+
+    Returns:
+        bool: 是否成功
+    """
+    try:
+        # 智能分段处理
+        segments = _split_text_by_language(text)
+
+        # 基线位置：左下角
+        current_x = left
+
+        for segment_text, is_chinese in segments:
+            if not segment_text:
+                continue
+
+            # 选择字体
+            fontname = "china-s" if is_chinese else "helv"
+
+            point = fitz.Point(current_x, bottom)
+
+            # 插入文本段
+            page.insert_text(
+                point,
+                segment_text,
+                fontsize=fontsize,
+                fontname=fontname,
+                color=(1, 1, 1),
+                render_mode=3,
+                overlay=True
+            )
+
+            # 估算文本宽度，更新 x 坐标
+            if is_chinese:
+                char_width = fontsize
+            else:
+                char_width = fontsize * 0.6
+
+            current_x += len(segment_text) * char_width
+
+        return True
+
+    except Exception as e:
+        logger.warning(f"嵌入文本失败: {text[:20]}..., 错误: {e}")
+        return False
     """
     将文本按中文和非中文分段
 
@@ -159,42 +222,14 @@ def embed_text_to_image(image_path: str, ocr_response: list, output_pdf_path: st
                 fontsize = 100
 
             try:
-                # 智能分段处理：中文用china-s，非中文用helv
-                segments = _split_text_by_language(text)
+                # 使用复用的混合字体嵌入函数
+                success = _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize)
 
-                # 基线位置：左下角
-                current_x = left
-
-                for segment_text, is_chinese in segments:
-                    if not segment_text:
-                        continue
-
-                    # 选择字体
-                    fontname = "china-s" if is_chinese else "helv"
-
-                    point = fitz.Point(current_x, bottom)
-
-                    # 插入文本段
-                    page.insert_text(
-                        point,
-                        segment_text,
-                        fontsize=fontsize,
-                        fontname=fontname,
-                        color=(1, 1, 1),
-                        render_mode=3,
-                        overlay=True
-                    )
-
-                    # 估算文本宽度，更新 x 坐标
-                    if is_chinese:
-                        char_width = fontsize
-                    else:
-                        char_width = fontsize * 0.6
-
-                    current_x += len(segment_text) * char_width
-
-                embedded_count += 1
-                logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}, 位置: ({left}, {bottom}), 字体: {fontsize:.1f}")
+                if success:
+                    embedded_count += 1
+                    logger.debug(f"[embed_text_to_image] 文本块 {i} 嵌入成功: {text[:20]}, 位置: ({left}, {bottom}), 字体: {fontsize:.1f}")
+                else:
+                    logger.warning(f"[embed_text_to_image] 文本块 {i} 嵌入失败: {text[:20]}")
 
             except Exception as e:
                 logger.warning(f"[embed_text_to_image] 文本块 {i} 嵌入异常: {text[:20]}, 错误: {e}")
@@ -301,44 +336,12 @@ def embed_text_to_pdf(pdf_path: str, pages_data: list, output_pdf_path: str):
                     fontsize = 100
 
                 try:
-                    # 智能分段处理：中文用china-s，非中文用helv
-                    segments = _split_text_by_language(text)
+                    # 使用复用的混合字体嵌入函数
+                    success = _embed_text_with_mixed_fonts(page, text, left, bottom, fontsize)
 
-                    # 基线位置：左下角
-                    current_x = left
-
-                    for segment_text, is_chinese in segments:
-                        if not segment_text:
-                            continue
-
-                        # 选择字体
-                        fontname = "china-s" if is_chinese else "helv"
-
-                        point = fitz.Point(current_x, bottom)
-
-                        # 插入文本段
-                        page.insert_text(
-                            point,
-                            segment_text,
-                            fontsize=fontsize,
-                            fontname=fontname,
-                            color=(1, 1, 1),
-                            render_mode=3,
-                            overlay=True
-                        )
-
-                        # 估算文本宽度，更新 x 坐标
-                        # 中文字符宽度约等于字体大小
-                        # 英文字符宽度约为字体大小的 0.6 倍
-                        if is_chinese:
-                            char_width = fontsize
-                        else:
-                            char_width = fontsize * 0.6
-
-                        current_x += len(segment_text) * char_width
-
-                    embedded_count += 1
-                    total_embedded += 1
+                    if success:
+                        embedded_count += 1
+                        total_embedded += 1
 
                 except Exception as e:
                     logger.warning(f"页码 {page_num} 嵌入文本块失败: {text[:20]}..., 错误: {e}")
