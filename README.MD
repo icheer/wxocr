@@ -8,7 +8,7 @@
 
 **基于微信 OCR 引擎的智能文字识别服务**
 
-支持图片和 PDF 文件的高精度识别，可将识别结果嵌入生成可搜索 PDF，并提供水印去除、图片纠偏等增强功能
+支持图片和 PDF 文件的高精度识别，可将识别结果嵌入生成可搜索 PDF，并提供水印去除、图片纠偏等 OCR 预处理增强功能
 
 [特性](#特性) • [快速开始](#快速开始) • [API文档](#api-文档) • [部署指南](#部署指南)
 
@@ -310,6 +310,7 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `file_type` | String | ✅ | 文件类型（image/pdf） |
 | `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
 | `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
+| `apply_preprocessing` | Boolean | ❌ | 图片模式专用：是否使用预处理后的图片（去水印/纠偏后的版本），默认 false |
 
 ### OCR-and-Embed 一站式接口
 
@@ -323,6 +324,17 @@ curl -H "Authorization: Bearer your_secret_key" ...
 
 **支持格式**: PDF 和图片文件（jpg, png, bmp 等）
 
+**参数说明**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | File | ✅ | 图片或 PDF 文件 |
+| `remove_watermark` | Boolean | ❌ | 是否去除水印（OCR预处理） |
+| `watermark_color` | String | ❌ | 水印颜色（#RRGGBB） |
+| `watermark_tolerance` | Integer | ❌ | 颜色容差（0-255，默认40） |
+| `deskew` | Boolean | ❌ | 是否纠正倾斜 |
+| `apply_preprocessing` | Boolean | ❌ | 图片专用：是否在最终PDF中应用预处理效果（去水印/纠偏），默认 false |
+
 **请求示例（PDF）**:
 ```bash
 curl -X POST http://localhost:5000/api/ocr-and-embed \
@@ -332,13 +344,23 @@ curl -X POST http://localhost:5000/api/ocr-and-embed \
   --output embedded_result.pdf
 ```
 
-**请求示例（图片）**:
+**请求示例（图片 - 仅优化OCR识别）**:
 ```bash
 curl -X POST http://localhost:5000/api/ocr-and-embed \
   -H "Authorization: Bearer your_secret_key" \
   -F "file=@scan.jpg" \
   -F "remove_watermark=true" \
   --output embedded_result.pdf
+```
+
+**请求示例（图片 - 最终输出也去除水印）**:
+```bash
+curl -X POST http://localhost:5000/api/ocr-and-embed \
+  -H "Authorization: Bearer your_secret_key" \
+  -F "file=@scan.jpg" \
+  -F "remove_watermark=true" \
+  -F "apply_preprocessing=true" \
+  --output embedded_result_no_watermark.pdf
 ```
 
 **支持的参数**: 与 OCR 接口相同（`remove_watermark`、`watermark_color`、`watermark_tolerance`、`deskew` 等）

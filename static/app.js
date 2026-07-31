@@ -359,7 +359,8 @@ createApp({
         // 构建请求数据
         const requestData = {
           file_path: this.filePath,
-          file_type: this.isPdf ? 'pdf' : 'image'
+          file_type: this.isPdf ? 'pdf' : 'image',
+          apply_preprocessing: true  // 默认使用预处理后的图片（去水印/纠偏）
         };
 
         if (this.isPdf) {

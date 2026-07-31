@@ -370,6 +370,7 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
     logger.info("开始处理图片文件")
 
     # 预处理
+    processed_path = None
     if params.remove_watermark or params.deskew:
         logger.info("对图片进行预处理")
         processed_path = f"{image_path}_processed.png"
@@ -402,7 +403,9 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
         'width': ocr_result.width,
         'height': ocr_result.height,
         'imgpath': ocr_result.imgpath,
-        'ocr_response': ocr_result.details
+        'ocr_response': ocr_result.details,
+        # 新增：保存预处理后的图片路径（如果有）
+        'processed_imgpath': processed_path
     }
 
     return ocr_result.text, metadata
@@ -492,9 +495,12 @@ def embed_text_to_pdf():
 
         file_path = data.get('file_path')
         file_type = data.get('file_type')
+        apply_preprocessing = data.get('apply_preprocessing', False)
 
         if not file_path:
             return error_response(400, 'MISSING_FILE_PATH', '缺少 file_path 参数')
+
+        logger.info(f"embed请求 - file_path: {file_path}, file_type: {file_type}, apply_preprocessing: {apply_preprocessing}")
 
         # 检查文件是否存在
         # 尝试多种路径解析方式
@@ -538,12 +544,25 @@ def embed_text_to_pdf():
             if not ocr_response:
                 return error_response(400, 'MISSING_OCR_DATA', '缺少 ocr_response 数据')
 
+            # 根据 apply_preprocessing 参数决定使用哪个图片
+            embed_image_path = str(full_path)
+            if apply_preprocessing:
+                # 尝试查找预处理后的图片（{原文件}_processed.png）
+                processed_path = Path(f"{full_path}_processed.png")
+                if processed_path.exists():
+                    embed_image_path = str(processed_path)
+                    logger.info(f"使用预处理后的图片: {embed_image_path}")
+                else:
+                    logger.warning(f"apply_preprocessing=true 但预处理图片不存在，使用原始图片: {embed_image_path}")
+            else:
+                logger.info(f"使用原始图片: {embed_image_path}")
+
             logger.info(f"=== 开始嵌入文本到图片 ===")
-            logger.info(f"图片路径: {full_path}")
+            logger.info(f"图片路径: {embed_image_path}")
             logger.info(f"文本块数量: {len(ocr_response)}")
 
             try:
-                embed_text_to_image(str(full_path), ocr_response, str(output_path))
+                embed_text_to_image(embed_image_path, ocr_response, str(output_path))
                 logger.info(f"=== 嵌入完成 ===")
             except Exception as embed_error:
                 logger.error(f"嵌入失败: {embed_error}", exc_info=True)
@@ -610,6 +629,10 @@ def ocr_and_embed():
         params = OcrRequestParams()
         client_ip = get_client_ip()
         logger.info(f"收到OCR-and-Embed请求 [来自: {client_ip}]: {params.to_dict()}")
+
+        # 获取 apply_preprocessing 参数（是否在最终输出中应用预处理）
+        apply_preprocessing = request.form.get('apply_preprocessing', 'false').lower() == 'true'
+        logger.info(f"apply_preprocessing: {apply_preprocessing}")
 
         # 检查是否为测试模式
         wcocr_available = current_app.config.get('WCOCR_AVAILABLE', False)
@@ -683,8 +706,22 @@ def ocr_and_embed():
                     return error_response(500, 'OCR_FAILED', 'OCR识别失败，未获取到文本块数据')
 
                 ocr_response = metadata['ocr_response']
+
+                # 根据 apply_preprocessing 参数决定使用哪个图片
+                embed_image_path = str(input_path)
+                if apply_preprocessing and metadata.get('processed_imgpath'):
+                    # 使用预处理后的图片（水印已去除）
+                    processed_path = Path(metadata['processed_imgpath'])
+                    if processed_path.exists():
+                        embed_image_path = str(processed_path)
+                        logger.info(f"使用预处理后的图片进行嵌入: {embed_image_path}")
+                    else:
+                        logger.warning(f"预处理图片不存在，使用原始图片: {embed_image_path}")
+                else:
+                    logger.info(f"使用原始图片进行嵌入: {embed_image_path}")
+
                 logger.info(f"嵌入图片，共 {len(ocr_response)} 个文本块")
-                embed_text_to_image(str(input_path), ocr_response, str(output_path))
+                embed_text_to_image(embed_image_path, ocr_response, str(output_path))
 
             logger.info(f"文本嵌入完成: {output_path}")
 
