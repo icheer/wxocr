@@ -19,7 +19,7 @@ class OcrResult:
         self.success = False
         self.width = 0  # 图片宽度
         self.height = 0  # 图片高度
-        self.imgpath = ""  # 图片路径
+        self.image_path = ""  # 图片路径
 
 
 def ocr_image(image_path: str) -> OcrResult:
@@ -61,7 +61,7 @@ def ocr_image(image_path: str) -> OcrResult:
             result.confidence = sum(confidences) / len(confidences) if confidences else 0.0
             result.width = ocr_response.get('width', 0)
             result.height = ocr_response.get('height', 0)
-            result.imgpath = ocr_response.get('imgpath', image_path)
+            result.image_path = ocr_response.get('image_path', image_path)
             result.success = True
 
             logger.info(f"OCR识别成功: 识别到 {len(text_parts)} 个文本块, "

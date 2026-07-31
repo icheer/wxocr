@@ -20,7 +20,7 @@ createApp({
       hasFile: false,
       isPdf: false,
       currentFile: null,
-      filePath: '',  // 保存临时文件路径（imgpath 或 pdfpath）
+      filePath: '',  // 保存临时文件路径（image_path 或 pdf_path）
       isEmbedding: false,  // 正在嵌入PDF的标记
       // 日志查看相关
       showLogsModal: false,
@@ -309,7 +309,7 @@ createApp({
           };
         });
         this.fullText = this.pdfPages.map(p => p.text).join('\n\n');
-        this.filePath = data.pdfpath || '';  // 保存 PDF 路径
+        this.filePath = data.pdf_path || '';  // 保存 PDF 路径
       } else {
         // 图片结果
         this.imageWidth = data.width || this.imageWidth;
@@ -321,7 +321,7 @@ createApp({
           editedText: result.text
         }));
         this.fullText = data.text || '';
-        this.filePath = data.imgpath || '';  // 保存图片路径
+        this.filePath = data.image_path || '';  // 保存图片路径
 
         // 图片模式：优先使用预处理后的图片（使用与 PDF 一致的字段名）
         if (data.processed_image_path) {

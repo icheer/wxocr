@@ -255,7 +255,7 @@ print(data['text'])
 
 # 编辑文本后嵌入生成 PDF
 embedded_pdf = embed_text_to_pdf(
-    file_path=data['pdfpath'],
+    file_path=data['pdf_path'],
     file_type='pdf',
     ocr_data=data['pages']
 )
@@ -472,7 +472,7 @@ curl "http://localhost:5000/api/temp/page_1_full.png_processed.png?api_key=your_
     "text": "识别到的文本内容...",
     "width": 1920,
     "height": 1080,
-    "imgpath": "temp/xxx.png",
+    "image_path": "temp/xxx.png",
     "ocr_response": [
       {
         "text": "文本块内容",
@@ -504,7 +504,7 @@ curl "http://localhost:5000/api/temp/page_1_full.png_processed.png?api_key=your_
   "success": true,
   "data": {
     "text": "完整文本内容...",
-    "pdfpath": "temp/xxx.pdf",
+    "pdf_path": "temp/xxx.pdf",
     "pages": [
       {
         "page_number": 1,

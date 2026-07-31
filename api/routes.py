@@ -84,7 +84,7 @@ def ocr():
                     'text': mock_text,
                     'width': 800,
                     'height': 600,
-                    'imgpath': 'temp/test_mode.png',
+                    'image_path': 'temp/test_mode.png',
                     'ocr_response': [
                         {
                             'text': '【模拟图片识别结果】',
@@ -236,12 +236,12 @@ def process_ocr_request(params: OcrRequestParams, start_time: float) -> dict:
             # 如果是 PDF 文件，使用按页组织的数据
             if 'pages' in metadata:
                 result['data']['pages'] = metadata['pages']
-                result['data']['pdfpath'] = str(input_path)  # 返回 PDF 路径
+                result['data']['pdf_path'] = str(input_path)  # 返回 PDF 路径
             else:
                 # 图片文件，使用单页格式
                 result['data']['width'] = metadata.get('width', 0)
                 result['data']['height'] = metadata.get('height', 0)
-                result['data']['imgpath'] = str(input_path)  # 返回图片路径
+                result['data']['image_path'] = str(input_path)  # 返回图片路径
                 result['data']['ocr_response'] = metadata.get('ocr_response', [])
                 # 添加预处理图片路径（如果有）- 使用与 PDF 模式一致的字段名
                 if metadata.get('processed_image_path'):
@@ -284,15 +284,15 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
     for page_info in pdf_result.pages:
         if page_info.image_path:
             # 该页需要 OCR
-            img_path = page_info.image_path
+            image_path = page_info.image_path
             processed_path = None
 
             # 预处理
             if params.remove_watermark or params.deskew:
                 logger.info(f"对第 {page_info.page_number} 页图片进行预处理")
-                processed_path = f"{img_path}_processed.png"
+                processed_path = f"{image_path}_processed.png"
                 processed_image, preprocess_stats = preprocess_image(
-                    img_path,
+                    image_path,
                     processed_path,
                     remove_watermark=params.remove_watermark,
                     watermark_color=params.watermark_color,
@@ -305,12 +305,12 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
                 # 【优化点1】如果apply_preprocessing=true，立即删除原渲染图片
                 if apply_preprocessing:
                     try:
-                        Path(img_path).unlink()
-                        logger.debug(f"已删除原渲染图片: {img_path}")
+                        Path(image_path).unlink()
+                        logger.debug(f"已删除原渲染图片: {image_path}")
                     except Exception as e:
                         logger.warning(f"删除原渲染图片失败: {e}")
             else:
-                ocr_input = img_path
+                ocr_input = image_path
 
             # OCR 识别
             logger.info(f"对第 {page_info.page_number} 页执行 OCR")
@@ -366,8 +366,8 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
     }
 
     # 将PDF提取的图片加入清理列表
-    for img_path in pdf_result.images:
-        temp_files.append(Path(img_path))
+    for image_path in pdf_result.images:
+        temp_files.append(Path(image_path))
 
     return final_text, metadata
 
@@ -422,7 +422,7 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
         # 添加详细信息
         'width': ocr_result.width,
         'height': ocr_result.height,
-        'imgpath': ocr_result.imgpath,
+        'image_path': ocr_result.image_path,
         'ocr_response': ocr_result.details,
         # 新增：保存预处理后的图片路径（如果有）- 统一使用 processed_image_path
         'processed_image_path': processed_path
