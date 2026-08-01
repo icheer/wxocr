@@ -48,8 +48,14 @@
   - 纯文本 PDF：直接提取（秒级响应）
   - 扫描 PDF：整页渲染后 OCR
   - 混合 PDF：文本提取 + 图片 OCR
-- ✅ **水印去除** - 指定色值或自动检测浅色水印
-- ✅ **图片纠偏** - 自动检测并纠正扫描件倾斜
+- ✅ **智能预处理** - 6 种图像预处理算法，科学的工作流顺序
+  - **水印去除** - 指定色值或自动检测浅色水印
+  - **自动纠偏** - 自动检测并纠正扫描件倾斜
+  - **去除噪点** - 3 种去噪算法（中值滤波/非局部均值/双边滤波）
+  - **对比度增强** - 自适应直方图均衡化（CLAHE）显著提升识别率
+  - **图像二值化** - 转为黑白图像，消除背景干扰（适合扫描件）
+  - **图像锐化** - 增强文字边缘，改善模糊图片识别效果
+- ✅ **快捷预设** - 智能预设、扫描件优化、照片优化一键应用
 - ✅ **并发控制** - 限流机制保护服务稳定性
 - ✅ **RESTful API** - 标准 HTTP 接口，易于集成
 - ✅ **API 认证** - 可选的 Bearer Token 认证机制
@@ -61,7 +67,8 @@
 - ✅ **文本编辑** - 支持对识别结果进行在线修订
 - ✅ **智能管理** - 文本块删除/还原，逻辑删除标记
 - ✅ **PDF 嵌入** - 将修订后的文本嵌入原文件，生成可搜索 PDF
-- ✅ **高级参数** - 水印去除、颜色容差、纠偏等参数可视化配置
+- ✅ **高级参数** - 6 种预处理选项可视化配置，参数实时调节
+- ✅ **快捷预设** - 智能预设/扫描件优化/照片优化，一键应用最佳配置
 
 ### 🚀 技术亮点
 
@@ -115,7 +122,11 @@ python app.py
 ### Web 界面使用
 
 1. **上传文件** - 点击虚线框、拖拽文件或 Ctrl+V 粘贴
-2. **配置参数** - 设置水印去除、颜色容差、纠偏等选项
+2. **配置参数** - 选择预处理选项：
+   - 水印去除、自动纠偏
+   - 去除噪点、对比度增强（推荐）
+   - 图像二值化（推荐）、图像锐化
+   - 或使用**快捷预设**一键应用最佳配置
 3. **查看结果** - 左侧预览原文件，右侧显示识别结果
 4. **编辑文本** - 点击表格中的文本进行修订
 5. **管理内容** - 删除/还原不需要的文本块
@@ -169,6 +180,44 @@ curl -X POST http://localhost:5000/api/ocr \
 curl -X POST http://localhost:5000/api/ocr \
   -F "file=@skewed.jpg" \
   -F "deskew=true"
+```
+
+#### 智能预处理（推荐）
+
+```bash
+# 对比度增强 + 二值化（显著提升识别率）
+curl -X POST http://localhost:5000/api/ocr \
+  -F "file=@scan.jpg" \
+  -F "enhance_contrast=true" \
+  -F "binarize=true"
+```
+
+#### 扫描件优化（完整预处理链）
+
+```bash
+# 纠偏 + 去噪 + 对比度增强 + 二值化
+curl -X POST http://localhost:5000/api/ocr \
+  -F "file=@old_scan.pdf" \
+  -F "deskew=true" \
+  -F "denoise=true" \
+  -F "denoise_method=median" \
+  -F "enhance_contrast=true" \
+  -F "contrast_method=clahe" \
+  -F "binarize=true" \
+  -F "binarize_method=gaussian"
+```
+
+#### 模糊照片优化
+
+```bash
+# 去噪 + 对比度增强 + 锐化（保留颜色）
+curl -X POST http://localhost:5000/api/ocr \
+  -F "file=@blurry_photo.jpg" \
+  -F "denoise=true" \
+  -F "denoise_method=fastNlMeans" \
+  -F "enhance_contrast=true" \
+  -F "sharpen=true" \
+  -F "sharpen_strength=1.5"
 ```
 
 #### 带认证的请求
@@ -301,7 +350,22 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `watermark_color` | String | ❌ | 水印颜色（#RRGGBB） |
 | `watermark_tolerance` | Integer | ❌ | 颜色容差（0-255，默认40） |
 | `deskew` | Boolean | ❌ | 是否纠正倾斜 |
+| `denoise` | Boolean | ❌ | 是否去除噪点 |
+| `denoise_method` | String | ❌ | 去噪方法（median/fastNlMeans/bilateral，默认median） |
+| `enhance_contrast` | Boolean | ❌ | 是否增强对比度（推荐） |
+| `contrast_method` | String | ❌ | 对比度增强方法（clahe/histogram，默认clahe） |
+| `binarize` | Boolean | ❌ | 是否二值化（推荐） |
+| `binarize_method` | String | ❌ | 二值化方法（gaussian/otsu，默认gaussian） |
+| `sharpen` | Boolean | ❌ | 是否锐化（与二值化互斥） |
+| `sharpen_strength` | Float | ❌ | 锐化强度（0.5-2.0，默认1.0） |
 | `output_format` | String | ❌ | 输出格式（plain/structured） |
+
+**预处理顺序**：水印去除 → 纠偏 → 去噪 → 对比度增强 → 二值化 → 锐化（如果未二值化）
+
+**推荐组合**：
+- **扫描件**：`enhance_contrast=true` + `binarize=true`（识别率提升最显著）
+- **老旧文档**：`deskew=true` + `denoise=true` + `enhance_contrast=true` + `binarize=true`
+- **模糊照片**：`denoise=true` + `enhance_contrast=true` + `sharpen=true`
 
 ### Embed 接口参数
 
@@ -489,7 +553,11 @@ curl "http://localhost:5000/api/temp/page_1_full.png_processed.png?api_key=your_
       "processing_method": "full_page_render",
       "preprocessed": {
         "watermark_removed": false,
-        "deskewed": false
+        "deskewed": false,
+        "denoised": false,
+        "contrast_enhanced": true,
+        "binarized": true,
+        "sharpened": false
       },
       "processing_time_ms": 3240
     }
@@ -530,7 +598,11 @@ curl "http://localhost:5000/api/temp/page_1_full.png_processed.png?api_key=your_
       "processing_method": "mixed",
       "preprocessed": {
         "watermark_removed": true,
-        "deskewed": false
+        "deskewed": false,
+        "denoised": true,
+        "contrast_enhanced": true,
+        "binarized": true,
+        "sharpened": false
       },
       "processing_time_ms": 8560
     }

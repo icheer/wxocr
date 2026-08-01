@@ -120,15 +120,69 @@ result = ocr_image(image_path)
 - `embed_text_to_image()`: 图片转可搜索 PDF
 - `embed_text_to_pdf()`: PDF 嵌入文本层
 
-### 4. 图片预处理
+### 4. 图像预处理管道
 
-**水印去除** (`utils/watermark_remover.py`):
-- 指定颜色值 + 容差
-- 自动检测浅色水印
+**核心文件**: `services/image_preprocessor.py`
 
-**图片纠偏** (`utils/deskew_helper.py`):
-- 基于 Hough 变换检测倾斜角度
-- 仅当倾斜 > 阈值时纠正
+统一的图像预处理工作流，支持 6 种预处理操作，按最优顺序执行：
+
+**预处理顺序**：
+```
+1. 水印去除 (Watermark Removal)   - 异物最先处理
+2. 自动纠偏 (Deskew)               - 避免旋转插值影响后续处理
+3. 去噪 (Denoise)                  - 为后续增强做准备
+4. 对比度增强 (Contrast Enhancement) - 为二值化做准备
+5. 二值化 (Binarization)           - 不可逆操作，最后执行
+6. 锐化 (Sharpen)                  - 仅在未二值化时执行（互斥）
+```
+
+**支持的预处理方法**：
+
+1. **水印去除** (`utils/watermark_remover.py`)
+   - 指定颜色值 + 容差
+   - 自动检测浅色水印
+
+2. **图片纠偏** (`utils/deskew_helper.py`)
+   - 基于 Hough 变换检测倾斜角度
+   - 仅当倾斜 > 阈值时纠正
+
+3. **去噪** (新增)
+   - `median`: 中值滤波（快速，适合椒盐噪声）
+   - `fastNlMeans`: 非局部均值去噪（效果好但慢）
+   - `bilateral`: 双边滤波（保留边缘）
+
+4. **对比度增强** (新增，强烈推荐)
+   - `clahe`: 自适应直方图均衡化（推荐）
+   - `histogram`: 标准直方图均衡化
+
+5. **二值化** (新增，强烈推荐)
+   - `gaussian`: 自适应高斯阈值（推荐）
+   - `otsu`: Otsu 自动阈值
+
+6. **锐化** (新增)
+   - Unsharp Mask 方法
+   - 可调节强度 (0.5 - 2.0)
+   - 与二值化互斥
+
+**关键类和函数**：
+```python
+from services.image_preprocessor import PreprocessingConfig, preprocess_image
+
+# 创建配置
+config = PreprocessingConfig()
+config.enhance_contrast = True
+config.binarize = True
+
+# 执行预处理
+result = preprocess_image(image, config)
+# result.image: 处理后的图像
+# result.applied_operations: 已应用的操作列表
+```
+
+**图片和 PDF 复用**：
+- 图片模式：直接应用预处理管道
+- PDF 模式：每页渲染后应用相同的预处理管道
+- 完全复用，无需重复代码
 
 ### 5. 并发控制
 
@@ -182,7 +236,25 @@ def protected_route():
 - `watermark_color`: 水印颜色 #RRGGBB（可选）
 - `watermark_tolerance`: 颜色容差 0-255（可选，默认 40）
 - `deskew`: 是否纠正倾斜（可选，默认 false）
+- `denoise`: 是否去除噪点（可选，默认 false）
+- `denoise_method`: 去噪方法 median/fastNlMeans/bilateral（可选，默认 median）
+- `enhance_contrast`: 是否增强对比度（可选，默认 false，**推荐启用**）
+- `contrast_method`: 对比度方法 clahe/histogram（可选，默认 clahe）
+- `binarize`: 是否二值化（可选，默认 false，**推荐启用**）
+- `binarize_method`: 二值化方法 gaussian/otsu（可选，默认 gaussian）
+- `sharpen`: 是否锐化（可选，默认 false，与二值化互斥）
+- `sharpen_strength`: 锐化强度 0.5-2.0（可选，默认 1.0）
 - `output_format`: 输出格式 plain/structured（可选）
+
+**预处理工作流顺序**：
+```
+水印去除 → 纠偏 → 去噪 → 对比度增强 → 二值化 → 锐化
+```
+
+**推荐组合**：
+- 扫描件：`enhance_contrast=true` + `binarize=true`
+- 老旧文档：`deskew=true` + `denoise=true` + `enhance_contrast=true` + `binarize=true`
+- 模糊照片：`denoise=true` + `enhance_contrast=true` + `sharpen=true`
 
 **响应** (图片):
 ```json
@@ -209,7 +281,11 @@ def protected_route():
       "processing_method": "full_page_render",
       "preprocessed": {
         "watermark_removed": false,
-        "deskewed": false
+        "deskewed": false,
+        "denoised": false,
+        "contrast_enhanced": true,
+        "binarized": true,
+        "sharpened": false
       },
       "processing_time_ms": 3240
     }
@@ -364,11 +440,28 @@ def new_endpoint():
 
 #### 3. 添加新的图片预处理功能
 
-**步骤**:
-1. 在 `utils/` 创建新模块（如 `noise_remover.py`）
-2. 在 `services/image_processor.py` 中集成
-3. 在 `api/validators.py` 添加请求参数
-4. 在 `api/routes.py` 传递参数到服务层
+**当前已实现的预处理功能**:
+- 水印去除
+- 自动纠偏
+- 去除噪点（3种方法）
+- 对比度增强（2种方法）
+- 图像二值化（2种方法）
+- 图像锐化
+
+**如需添加新功能，步骤**:
+1. 在 `services/image_preprocessor.py` 中添加新的处理函数
+2. 更新 `PreprocessingConfig` 类添加新参数
+3. 在 `preprocess_image()` 函数的工作流中插入新步骤（注意顺序）
+4. 在 `api/validators.py` 的 `OcrRequestParams` 添加请求参数
+5. 前端 `static/index.html` 和 `static/app.js` 添加 UI 控件
+
+**预处理顺序原则**:
+- 水印去除优先（异物最先处理）
+- 几何变换（纠偏）在图像质量最好时进行
+- 去噪在二值化前处理
+- 对比度增强为二值化做准备
+- 二值化最后（不可逆操作）
+- 锐化与二值化互斥
 
 #### 4. 修改临时文件清理策略
 
