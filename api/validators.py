@@ -265,7 +265,7 @@ class OcrRequestParams:
             # 文件参数
             self.file = request.files.get('file')
 
-            # 预处理参数
+            # 预处理参数 - 水印去除
             self.remove_watermark = parse_bool_param('remove_watermark', False)
             self.watermark_color = parse_color_param('watermark_color', None)
             self.watermark_tolerance = parse_int_param(
@@ -275,7 +275,35 @@ class OcrRequestParams:
                 max_value=255
             )
 
+            # 预处理参数 - 纠偏
             self.deskew = parse_bool_param('deskew', False)
+
+            # 预处理参数 - 去噪
+            self.denoise = parse_bool_param('denoise', False)
+            self.denoise_method = request.form.get('denoise_method', 'median').lower()
+            if self.denoise_method not in ('median', 'fastNlMeans', 'bilateral'):
+                self.denoise_method = 'median'
+
+            # 预处理参数 - 对比度增强
+            self.enhance_contrast = parse_bool_param('enhance_contrast', False)
+            self.contrast_method = request.form.get('contrast_method', 'clahe').lower()
+            if self.contrast_method not in ('clahe', 'histogram'):
+                self.contrast_method = 'clahe'
+
+            # 预处理参数 - 二值化
+            self.binarize = parse_bool_param('binarize', False)
+            self.binarize_method = request.form.get('binarize_method', 'gaussian').lower()
+            if self.binarize_method not in ('gaussian', 'otsu'):
+                self.binarize_method = 'gaussian'
+
+            # 预处理参数 - 锐化
+            self.sharpen = parse_bool_param('sharpen', False)
+            self.sharpen_strength = parse_float_param(
+                'sharpen_strength',
+                default=1.0,
+                min_value=0.5,
+                max_value=2.0
+            )
 
             # 输出格式
             self.output_format = request.form.get('output_format', 'plain').lower()
@@ -299,5 +327,13 @@ class OcrRequestParams:
             'watermark_color': self.watermark_color,
             'watermark_tolerance': self.watermark_tolerance,
             'deskew': self.deskew,
+            'denoise': self.denoise,
+            'denoise_method': self.denoise_method,
+            'enhance_contrast': self.enhance_contrast,
+            'contrast_method': self.contrast_method,
+            'binarize': self.binarize,
+            'binarize_method': self.binarize_method,
+            'sharpen': self.sharpen,
+            'sharpen_strength': self.sharpen_strength,
             'output_format': self.output_format,
         }

@@ -287,8 +287,9 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
             image_path = page_info.image_path
             processed_path = None
 
-            # 预处理
-            if params.remove_watermark or params.deskew:
+            # 预处理（检查是否启用了任何预处理）
+            if (params.remove_watermark or params.deskew or params.denoise or
+                params.enhance_contrast or params.binarize or params.sharpen):
                 logger.info(f"对第 {page_info.page_number} 页图片进行预处理")
                 processed_path = f"{image_path}_processed.png"
                 processed_image, preprocess_stats = preprocess_image(
@@ -297,7 +298,15 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
                     remove_watermark=params.remove_watermark,
                     watermark_color=params.watermark_color,
                     watermark_tolerance=params.watermark_tolerance,
-                    deskew=params.deskew
+                    deskew=params.deskew,
+                    denoise=params.denoise,
+                    denoise_method=params.denoise_method,
+                    enhance_contrast=params.enhance_contrast,
+                    contrast_method=params.contrast_method,
+                    binarize=params.binarize,
+                    binarize_method=params.binarize_method,
+                    sharpen=params.sharpen,
+                    sharpen_strength=params.sharpen_strength
                 )
                 temp_files.append(Path(processed_path))
                 ocr_input = processed_path
@@ -360,7 +369,11 @@ def process_pdf_file(pdf_path: str, params: OcrRequestParams, temp_files: list, 
         'processing_method': pdf_result.strategy,
         'preprocessed': {
             'watermark_removed': params.remove_watermark,
-            'deskewed': params.deskew
+            'deskewed': params.deskew,
+            'denoised': params.denoise,
+            'contrast_enhanced': params.enhance_contrast,
+            'binarized': params.binarize,
+            'sharpened': params.sharpen and not params.binarize
         },
         'pages': pages_data
     }
@@ -389,9 +402,11 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
 
     logger.info("开始处理图片文件")
 
-    # 预处理
+    # 预处理（检查是否启用了任何预处理）
     processed_path = None
-    if params.remove_watermark or params.deskew:
+    preprocess_stats = {}
+    if (params.remove_watermark or params.deskew or params.denoise or
+        params.enhance_contrast or params.binarize or params.sharpen):
         logger.info("对图片进行预处理")
         processed_path = f"{image_path}_processed.png"
         processed_image, preprocess_stats = preprocess_image(
@@ -400,7 +415,15 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
             remove_watermark=params.remove_watermark,
             watermark_color=params.watermark_color,
             watermark_tolerance=params.watermark_tolerance,
-            deskew=params.deskew
+            deskew=params.deskew,
+            denoise=params.denoise,
+            denoise_method=params.denoise_method,
+            enhance_contrast=params.enhance_contrast,
+            contrast_method=params.contrast_method,
+            binarize=params.binarize,
+            binarize_method=params.binarize_method,
+            sharpen=params.sharpen,
+            sharpen_strength=params.sharpen_strength
         )
         temp_files.append(Path(processed_path))
         ocr_input = processed_path
@@ -417,7 +440,11 @@ def process_image_file(image_path: str, params: OcrRequestParams, temp_files: li
         'processing_method': 'full_page_render',
         'preprocessed': {
             'watermark_removed': params.remove_watermark,
-            'deskewed': params.deskew
+            'deskewed': params.deskew,
+            'denoised': params.denoise,
+            'contrast_enhanced': params.enhance_contrast,
+            'binarized': params.binarize,
+            'sharpened': params.sharpen and not params.binarize
         },
         # 添加详细信息
         'width': ocr_result.width,

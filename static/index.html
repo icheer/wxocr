@@ -195,6 +195,24 @@
       overflow-y: auto;
     }
 
+    /* 初始状态：Grid 横向排列 */
+    .left-sidebar:not(.has-file) .params-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* 初始状态：标题占据整行 */
+    .left-sidebar:not(.has-file) .params-title {
+      grid-column: 1 / -1;
+    }
+
+    /* 初始状态：快捷预设也占据整行 */
+    .left-sidebar:not(.has-file) .preset-group {
+      grid-column: 1 / -1;
+    }
+
     .params-title {
       font-size: 15px;
       font-weight: 600;
@@ -206,6 +224,11 @@
 
     .param-group {
       margin-bottom: 18px;
+    }
+
+    /* 初始状态时去掉下边距，避免间隙过大 */
+    .left-sidebar:not(.has-file) .param-group {
+      margin-bottom: 0;
     }
 
     .param-label {
@@ -287,6 +310,39 @@
 
     .color-text-input {
       flex: 1;
+    }
+
+    .badge-recommend {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #67C23A;
+      color: #fff;
+      font-size: 11px;
+      border-radius: 3px;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+
+    .preset-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: #fff;
+      border: 1px solid #409EFF;
+      color: #409EFF;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+
+    .preset-btn:hover {
+      background: #409EFF;
+      color: #fff;
+    }
+
+    .preset-btn:active {
+      transform: scale(0.98);
     }
 
     .right-main {
@@ -860,7 +916,7 @@
       </div>
     </div>
     <div class="main-container">
-      <div class="left-sidebar" :class="{ init: !hasFile }">
+      <div class="left-sidebar" :class="{ init: !hasFile, 'has-file': hasFile }">
         <div class="upload-section">
           <div class="upload-area" :class="{ dragging: isDragging }" @dragover.prevent="handleDragOver"
             @dragenter.prevent="handleDragOver" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop"
@@ -902,6 +958,80 @@
               <label for="deskew">自动纠偏</label>
             </div>
             <p class="param-description">自动检测并纠正图片的倾斜角度</p>
+          </div>
+
+          <!-- 新增：去噪 -->
+          <div class="param-group">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="denoise" v-model="params.denoise">
+              <label for="denoise">去除噪点</label>
+            </div>
+            <p class="param-description">消除椒盐噪点和高斯噪声，提升识别率</p>
+            <div v-if="params.denoise" style="margin-top: 8px;">
+              <label class="param-label">去噪方法</label>
+              <select class="param-input" v-model="params.denoiseMethod" style="width: 100%;">
+                <option value="median">快速去噪（推荐）</option>
+                <option value="fastNlMeans">高质量去噪（慢）</option>
+                <option value="bilateral">双边滤波（保留边缘）</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 新增：对比度增强 -->
+          <div class="param-group">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="enhance-contrast" v-model="params.enhanceContrast">
+              <label for="enhance-contrast">对比度增强 <span class="badge-recommend">推荐</span></label>
+            </div>
+            <p class="param-description">提升文字与背景的区分度，显著提高识别准确率</p>
+            <div v-if="params.enhanceContrast" style="margin-top: 8px;">
+              <label class="param-label">增强方法</label>
+              <select class="param-input" v-model="params.contrastMethod" style="width: 100%;">
+                <option value="clahe">自适应增强（推荐）</option>
+                <option value="histogram">直方图均衡化</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 新增：二值化 -->
+          <div class="param-group">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="binarize" v-model="params.binarize">
+              <label for="binarize">图像二值化 <span class="badge-recommend">推荐</span></label>
+            </div>
+            <p class="param-description">转为黑白图像，消除背景干扰（适合扫描件）</p>
+            <div v-if="params.binarize" style="margin-top: 8px;">
+              <label class="param-label">二值化方法</label>
+              <select class="param-input" v-model="params.binarizeMethod" style="width: 100%;">
+                <option value="gaussian">自适应阈值（推荐）</option>
+                <option value="otsu">Otsu 方法</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 新增：锐化 -->
+          <div class="param-group">
+            <div class="checkbox-wrapper">
+              <input type="checkbox" id="sharpen" v-model="params.sharpen" :disabled="params.binarize">
+              <label for="sharpen">图像锐化</label>
+            </div>
+            <p class="param-description">增强文字边缘（与二值化互斥，模糊图片可用）</p>
+            <div v-if="params.sharpen && !params.binarize" style="margin-top: 8px;">
+              <label class="param-label">锐化强度 ({{ params.sharpenStrength.toFixed(1) }})</label>
+              <input type="range" class="param-input" v-model.number="params.sharpenStrength"
+                     min="0.5" max="2.0" step="0.1" style="padding:0;height:32px;">
+            </div>
+          </div>
+
+          <!-- 快捷预设 -->
+          <div class="param-group preset-group" style="border-top: 1px solid #e4e7ed; padding-top: 15px; margin-top: 10px;">
+            <label class="param-label">快捷预设</label>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+              <button class="preset-btn" @click="applyPreset('auto')">智能预设</button>
+              <button class="preset-btn" @click="applyPreset('scan')">扫描件</button>
+              <button class="preset-btn" @click="applyPreset('photo')">照片</button>
+              <button class="preset-btn" @click="applyPreset('clear')">清除全部</button>
+            </div>
           </div>
         </div>
       </div>

@@ -32,7 +32,15 @@ createApp({
         removeWatermark: false,
         watermarkColor: '#FFFFFF',
         colorTolerance: 30,
-        deskew: false
+        deskew: false,
+        denoise: false,
+        denoiseMethod: 'median',
+        enhanceContrast: false,
+        contrastMethod: 'clahe',
+        binarize: false,
+        binarizeMethod: 'gaussian',
+        sharpen: false,
+        sharpenStrength: 1.0
       }
     };
   },
@@ -231,14 +239,32 @@ createApp({
       const formData = new FormData();
       formData.append('file', file);
 
-      // 添加高级参数
+      // 添加预处理参数
       formData.append('remove_watermark', this.params.removeWatermark ? 'true' : 'false');
       formData.append('deskew', this.params.deskew ? 'true' : 'false');
+      formData.append('denoise', this.params.denoise ? 'true' : 'false');
+      formData.append('enhance_contrast', this.params.enhanceContrast ? 'true' : 'false');
+      formData.append('binarize', this.params.binarize ? 'true' : 'false');
+      formData.append('sharpen', this.params.sharpen ? 'true' : 'false');
 
       // 如果启用了水印移除，添加水印颜色和容差
       if (this.params.removeWatermark) {
         formData.append('watermark_color', this.params.watermarkColor);
         formData.append('watermark_tolerance', this.params.colorTolerance.toString());
+      }
+
+      // 添加预处理方法参数
+      if (this.params.denoise) {
+        formData.append('denoise_method', this.params.denoiseMethod);
+      }
+      if (this.params.enhanceContrast) {
+        formData.append('contrast_method', this.params.contrastMethod);
+      }
+      if (this.params.binarize) {
+        formData.append('binarize_method', this.params.binarizeMethod);
+      }
+      if (this.params.sharpen) {
+        formData.append('sharpen_strength', this.params.sharpenStrength.toString());
       }
 
       try {
@@ -540,6 +566,63 @@ createApp({
         this.logsError = `网络错误: ${error.message}`;
       } finally {
         this.logsLoading = false;
+      }
+    },
+
+    applyPreset(presetName) {
+      // 快捷预设功能
+      switch (presetName) {
+        case 'auto':
+          // 智能预设：对比度增强 + 二值化（最推荐）
+          this.params.removeWatermark = false;
+          this.params.deskew = true;
+          this.params.denoise = false;
+          this.params.enhanceContrast = true;
+          this.params.contrastMethod = 'clahe';
+          this.params.binarize = true;
+          this.params.binarizeMethod = 'gaussian';
+          this.params.sharpen = false;
+          this.showToast('已应用智能预设', 'success');
+          break;
+
+        case 'scan':
+          // 扫描件优化：纠偏 + 去噪 + 对比度增强 + 二值化
+          this.params.removeWatermark = false;
+          this.params.deskew = true;
+          this.params.denoise = true;
+          this.params.denoiseMethod = 'median';
+          this.params.enhanceContrast = true;
+          this.params.contrastMethod = 'clahe';
+          this.params.binarize = true;
+          this.params.binarizeMethod = 'gaussian';
+          this.params.sharpen = false;
+          this.showToast('已应用扫描件优化预设', 'success');
+          break;
+
+        case 'photo':
+          // 照片优化：纠偏 + 去噪 + 对比度增强（不二值化，保留颜色）
+          this.params.removeWatermark = false;
+          this.params.deskew = true;
+          this.params.denoise = true;
+          this.params.denoiseMethod = 'fastNlMeans';
+          this.params.enhanceContrast = true;
+          this.params.contrastMethod = 'clahe';
+          this.params.binarize = false;
+          this.params.sharpen = true;
+          this.params.sharpenStrength = 1.2;
+          this.showToast('已应用照片优化预设', 'success');
+          break;
+
+        case 'clear':
+          // 清除所有预处理
+          this.params.removeWatermark = false;
+          this.params.deskew = false;
+          this.params.denoise = false;
+          this.params.enhanceContrast = false;
+          this.params.binarize = false;
+          this.params.sharpen = false;
+          this.showToast('已清除所有预处理', 'info');
+          break;
       }
     },
 
