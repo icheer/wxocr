@@ -428,9 +428,9 @@ createApp({
           body: JSON.stringify({
             ocr_response: ocrResponse,
             options: {
-              row_threshold_ratio: 0.75,
+              row_threshold_ratio: 1.25,
               gap_threshold_ratio: 1.2, // 降低阈值，更容易识别列结构
-              paragraph_spacing_ratio: 1.5,
+              paragraph_spacing_ratio: 2.25,
               min_confidence: 0.3,
               column_separator: '    ' // 4个空格
             }
