@@ -417,7 +417,7 @@ createApp({
               gap_threshold_ratio: 2.0,
               paragraph_spacing_ratio: 1.5,
               min_confidence: 0.3,
-              column_separator: '\t'
+              column_separator: '    '  // 4个空格
             }
           })
         });
@@ -441,8 +441,6 @@ createApp({
             `已复制智能排版文本 (${metadata.row_count}行, ${metadata.column_count}列, ${metadata.paragraph_count}段)`,
             'success'
           );
-
-          console.log('智能排版元数据:', metadata);
         } else {
           throw new Error('智能排版返回数据格式错误');
         }
