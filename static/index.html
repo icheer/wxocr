@@ -1,1172 +1,1371 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-Hans">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WeChat OCR 服务</title>
-  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css">
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      padding: 0;
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #f5f7fa;
-      color: #2c3e50;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    #app {
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    #app[v-cloak] {
-      display: none;
-    }
-
-    .top-bar {
-      background: #fff;
-      border-bottom: 1px solid #e4e7ed;
-      padding: 15px 30px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-shrink: 0;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    .page-title {
-      color: #303133;
-      font-size: 20px;
-      font-weight: 600;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .github-link {
-      display: inline-flex;
-      align-items: center;
-      color: #606266;
-      text-decoration: none;
-      transition: color 0.3s;
-      line-height: 1;
-    }
-
-    .github-link:hover {
-      color: #409EFF;
-    }
-
-    .github-icon {
-      width: 22px;
-      height: 22px;
-      flex-shrink: 0;
-    }
-
-    .api-key-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .api-key-label {
-      font-size: 14px;
-      color: #606266;
-      font-weight: 500;
-    }
-
-    .api-key-input {
-      width: 200px;
-      padding: 8px 12px;
-      border: 1px solid #dcdfe6;
-      border-radius: 4px;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.3s;
-    }
-
-    .api-key-input:focus {
-      border-color: #409EFF;
-    }
-
-    .view-logs-btn {
-      padding: 8px 16px;
-      background: #f4f4f5;
-      border: 1px solid #dcdfe6;
-      border-radius: 4px;
-      font-size: 14px;
-      color: #606266;
-      cursor: pointer;
-      transition: all 0.3s;
-      white-space: nowrap;
-    }
-
-    .view-logs-btn:hover {
-      background: #ecf5ff;
-      color: #409EFF;
-      border-color: #c6e2ff;
-    }
-
-    .main-container {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-
-    .left-sidebar {
-      width: 380px;
-      background: #fff;
-      border-right: 1px solid #e4e7ed;
-      display: flex;
-      flex-direction: column;
-      overflow-y: auto;
-      flex-shrink: 0;
-    }
-
-    .left-sidebar.init {
-      width: 100%;
-      border-right: none;
-    }
-
-    .upload-section {
-      padding: 20px;
-      border-bottom: 1px solid #ebeef5;
-    }
-
-    .upload-area {
-      padding: 40px 20px;
-      border: 2px dashed #dcdfe6;
-      text-align: center;
-      transition: all 0.2s;
-      cursor: pointer;
-      background: #fafafa;
-      border-radius: 8px;
-      user-select: none;
-    }
-
-    .upload-area:hover,
-    .upload-area.dragging {
-      border-color: #409EFF;
-      background: rgba(64, 158, 255, 0.05);
-    }
-
-    .upload-area.dragging {
-      transform: scale(1.01);
-    }
-
-    .upload-icon {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-
-    .upload-area p {
-      margin: 8px 0;
-      color: #606266;
-      font-size: 15px;
-      font-weight: 500;
-    }
-
-    .upload-area input[type="file"] {
-      display: none;
-    }
-
-    .file-type-tip {
-      font-size: 13px;
-      color: #909399;
-      margin: 6px 0 0;
-    }
-
-    .params-section {
-      padding: 20px;
-      flex: 1;
-      overflow-y: auto;
-    }
-
-    /* 初始状态：Grid 横向排列 */
-    .left-sidebar:not(.has-file) .params-section {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      align-items: start;
-    }
-
-    /* 初始状态：标题占据整行 */
-    .left-sidebar:not(.has-file) .params-title {
-      grid-column: 1 / -1;
-    }
-
-    /* 初始状态：快捷预设也占据整行 */
-    .left-sidebar:not(.has-file) .preset-group {
-      grid-column: 1 / -1;
-    }
-
-    .params-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #303133;
-      margin: 0 0 16px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid #409EFF;
-    }
-
-    .param-group {
-      margin-bottom: 18px;
-    }
-
-    /* 初始状态时去掉下边距，避免间隙过大 */
-    .left-sidebar:not(.has-file) .param-group {
-      margin-bottom: 0;
-    }
-
-    .param-label {
-      display: block;
-      font-size: 14px;
-      color: #606266;
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-
-    .param-description {
-      font-size: 12px;
-      color: #909399;
-      margin-top: 4px;
-      line-height: 1.4;
-    }
-
-    .checkbox-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: #f5f7fa;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .checkbox-wrapper:hover {
-      background: #e4e7ed;
-    }
-
-    .checkbox-wrapper input[type="checkbox"] {
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-    }
-
-    .checkbox-wrapper label {
-      font-size: 14px;
-      color: #606266;
-      cursor: pointer;
-      user-select: none;
-      flex: 1;
-    }
-
-    .param-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #dcdfe6;
-      border-radius: 4px;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.3s;
-    }
-
-    .param-input:focus {
-      border-color: #409EFF;
-    }
-
-    .param-input:disabled {
-      background: #f5f7fa;
-      cursor: not-allowed;
-    }
-
-    .color-input-wrapper {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .color-preview {
-      width: 40px;
-      height: 40px;
-      border: 1px solid #dcdfe6;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .color-text-input {
-      flex: 1;
-    }
-
-    .badge-recommend {
-      display: inline-block;
-      padding: 2px 6px;
-      background: #67C23A;
-      color: #fff;
-      font-size: 11px;
-      border-radius: 3px;
-      margin-left: 6px;
-      font-weight: 500;
-    }
-
-    .preset-btn {
-      flex: 1;
-      padding: 8px 12px;
-      background: #fff;
-      border: 1px solid #409EFF;
-      color: #409EFF;
-      border-radius: 4px;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.3s;
-      font-weight: 500;
-    }
-
-    .preset-btn:hover {
-      background: #409EFF;
-      color: #fff;
-    }
-
-    .preset-btn:active {
-      transform: scale(0.98);
-    }
-
-    .right-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: #f5f7fa;
-    }
-
-    .right-main.init {
-      display: none;
-    }
-
-    .content-area {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      padding: 20px;
-      overflow: hidden;
-    }
-
-    .panel {
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .panel-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid #ebeef5;
-      background: #fafafa;
-    }
-
-    .panel-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #303133;
-      margin: 0;
-    }
-
-    .panel-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-    }
-
-    .preview-container {
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
-
-    .image-container {
-      position: relative;
-      display: inline-block;
-      max-width: 100%;
-    }
-
-    .image-wrapper {
-      position: relative;
-      font-size: 0;
-    }
-
-    .image-wrapper img {
-      max-width: 100%;
-      height: auto;
-      display: block;
-      border-radius: 4px;
-    }
-
-    .pdf-container {
-      width: 100%;
-    }
-
-    .pdf-page {
-      position: relative;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .pdf-page canvas {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    .pdf-page .pdf-preview-image {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-
-    .page-number {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .ocr-box {
-      position: absolute;
-      background: rgba(64, 158, 255, 0.25);
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid rgba(64, 158, 255, 0.5);
-      border-radius: 2px;
-    }
-
-    .ocr-box:hover {
-      background: rgba(64, 158, 255, 0.4);
-      border-color: rgba(64, 158, 255, 0.8);
-    }
-
-    .ocr-box.highlight {
-      background: rgba(103, 194, 58, 0.5);
-      border-color: rgba(103, 194, 58, 0.9);
-      border-width: 2px;
-      z-index: 10;
-    }
-
-    .ocr-box.deleted {
-      background: transparent;
-      border: 1px dashed rgba(0, 0, 0, 0.3);
-    }
-
-    .ocr-box.deleted:hover {
-      background: rgba(103, 194, 58, 0.15);
-      border-color: rgba(103, 194, 58, 0.6);
-      border-style: solid;
-    }
-
-    .ocr-box.deleted.highlight {
-      background: rgba(103, 194, 58, 0.25);
-      border-color: rgba(103, 194, 58, 0.9);
-      border-width: 2px;
-      border-style: solid;
-      z-index: 10;
-    }
-
-    .text-section {
-      margin-bottom: 16px;
-      position: relative;
-    }
-
-    .text-display {
-      background: #f5f7fa;
-      padding: 12px 14px;
-      border-radius: 6px;
-      max-height: 180px;
-      overflow-y: auto;
-      position: relative;
-    }
-
-    .text-content {
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 13px;
-      line-height: 1.8;
-      color: #606266;
-      margin: 0;
-      font-family: Consolas, Monaco, monospace;
-    }
-
-    .copy-btn {
-      position: sticky;
-      top: 0;
-      right: 0;
-      float: right;
-      padding: 5px 12px;
-      margin-bottom: 8px;
-      background: #409EFF;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: background 0.2s;
-      box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);
-      z-index: 10;
-    }
-
-    .copy-btn:hover {
-      background: #66b1ff;
-    }
-
-    .copy-btn:active {
-      transform: scale(0.96);
-    }
-
-    .pdf-btn {
-      padding: 6px 16px;
-      background: #67c23a;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.2s;
-      font-weight: 500;
-    }
-
-    .pdf-btn:hover:not(:disabled) {
-      background: #85ce61;
-    }
-
-    .pdf-btn:disabled {
-      background: #c0c4cc;
-      cursor: not-allowed;
-    }
-
-    .table-wrapper {
-      flex: 1;
-      overflow-y: auto;
-      border: 1px solid #ebeef5;
-      border-radius: 4px;
-    }
-
-    .result-table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .result-table th,
-    .result-table td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid #ebeef5;
-      font-size: 13px;
-    }
-
-    .result-table th {
-      background: #fafafa;
-      color: #606266;
-      font-weight: 600;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      white-space: nowrap;
-    }
-
-    .result-table td {
-      color: #606266;
-      word-break: break-word;
-    }
-
-    .result-table tbody tr {
-      transition: background 0.15s;
-    }
-
-    .result-table tbody tr:hover {
-      background: #f5f7fa;
-    }
-
-    .result-table tbody tr.highlight {
-      background: #ecf5ff !important;
-    }
-
-    .result-table tbody tr.deleted {
-      background: #f5f7fa;
-      color: #909399;
-      opacity: 0.6;
-    }
-
-    .result-table tbody tr.deleted .editable-text {
-      text-decoration: line-through;
-      cursor: not-allowed;
-    }
-
-    .editable-cell {
-      padding: 0 !important;
-    }
-
-    .editable-text {
-      padding: 10px 12px;
-      min-height: 38px;
-      outline: none;
-      cursor: text;
-      transition: background 0.2s;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-
-    .editable-text:focus {
-      background: #ecf5ff;
-      border: 1px solid #409EFF;
-      border-radius: 2px;
-    }
-
-    .result-table tbody tr.deleted .editable-text {
-      pointer-events: none;
-    }
-
-    .action-cell {
-      text-align: center;
-    }
-
-    .action-btn {
-      padding: 4px 12px;
-      border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: all 0.2s;
-      font-weight: 500;
-    }
-
-    .delete-btn {
-      background: #f56c6c;
-      color: white;
-    }
-
-    .delete-btn:hover {
-      background: #f78989;
-    }
-
-    .restore-btn {
-      background: #409EFF;
-      color: white;
-    }
-
-    .restore-btn:hover {
-      background: #66b1ff;
-    }
-
-    .action-btn:active {
-      transform: scale(0.95);
-    }
-
-    .copyable {
-      cursor: pointer;
-      color: #409EFF;
-      transition: color 0.2s;
-    }
-
-    .copyable:hover {
-      color: #66b1ff;
-      text-decoration: underline;
-    }
-
-    .confidence {
-      font-weight: 600;
-      color: #67c23a;
-    }
-
-    .confidence.low {
-      color: #e6a23c;
-    }
-
-    .confidence.very-low {
-      color: #f56c6c;
-    }
-
-    .loading {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.85);
-      color: white;
-      padding: 20px 40px;
-      border-radius: 8px;
-      font-size: 14px;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-      z-index: 1000;
-      text-align: center;
-      min-width: 200px;
-    }
-
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #c1c1c1;
-      border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #a8a8a8;
-    }
-
-    @media (max-width: 1200px) {
-      .content-area {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeChat OCR 服务</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.11/dist/clipboard.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/toastify-js@1.12.0/src/toastify.min.css"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
       }
 
-      .left-sidebar {
-        width: 320px;
+      html,
+      body {
+        padding: 0;
+        margin: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #f5f7fa;
+        color: #2c3e50;
+        height: 100vh;
+        overflow: hidden;
       }
-    }
 
-    @media (max-width: 768px) {
-      .top-bar {
+      #app {
+        height: 100vh;
+        display: flex;
         flex-direction: column;
+      }
+
+      #app[v-cloak] {
+        display: none;
+      }
+
+      .top-bar {
+        background: #fff;
+        border-bottom: 1px solid #e4e7ed;
+        padding: 15px 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .page-title {
+        color: #303133;
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
         gap: 12px;
-        align-items: flex-start;
+      }
+
+      .github-link {
+        display: inline-flex;
+        align-items: center;
+        color: #606266;
+        text-decoration: none;
+        transition: color 0.3s;
+        line-height: 1;
+      }
+
+      .github-link:hover {
+        color: #409eff;
+      }
+
+      .github-icon {
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+
+      .api-key-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .api-key-label {
+        font-size: 14px;
+        color: #606266;
+        font-weight: 500;
+      }
+
+      .api-key-input {
+        width: 200px;
+        padding: 8px 12px;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .api-key-input:focus {
+        border-color: #409eff;
+      }
+
+      .view-logs-btn {
+        padding: 8px 16px;
+        background: #f4f4f5;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #606266;
+        cursor: pointer;
+        transition: all 0.3s;
+        white-space: nowrap;
+      }
+
+      .view-logs-btn:hover {
+        background: #ecf5ff;
+        color: #409eff;
+        border-color: #c6e2ff;
       }
 
       .main-container {
-        flex-direction: column;
+        flex: 1;
+        display: flex;
+        overflow: hidden;
       }
 
       .left-sidebar {
+        width: 380px;
+        background: #fff;
+        border-right: 1px solid #e4e7ed;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+
+      .left-sidebar.init {
         width: 100%;
         border-right: none;
-        border-bottom: 1px solid #e4e7ed;
-        max-height: 50vh;
+      }
+
+      .upload-section {
+        padding: 20px;
+        border-bottom: 1px solid #ebeef5;
+      }
+
+      .upload-area {
+        padding: 40px 20px;
+        border: 2px dashed #dcdfe6;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+        background: #fafafa;
+        border-radius: 8px;
+        user-select: none;
+      }
+
+      .upload-area:hover,
+      .upload-area.dragging {
+        border-color: #409eff;
+        background: rgba(64, 158, 255, 0.05);
+      }
+
+      .upload-area.dragging {
+        transform: scale(1.01);
+      }
+
+      .upload-icon {
+        font-size: 48px;
+        margin-bottom: 10px;
+      }
+
+      .upload-area p {
+        margin: 8px 0;
+        color: #606266;
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      .upload-area input[type='file'] {
+        display: none;
+      }
+
+      .file-type-tip {
+        font-size: 13px;
+        color: #909399;
+        margin: 6px 0 0;
+      }
+
+      .params-section {
+        padding: 20px;
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      /* 初始状态：Grid 横向排列 */
+      .left-sidebar:not(.has-file) .params-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+        align-items: start;
+      }
+
+      /* 初始状态：标题占据整行 */
+      .left-sidebar:not(.has-file) .params-title {
+        grid-column: 1 / -1;
+      }
+
+      /* 初始状态：快捷预设也占据整行 */
+      .left-sidebar:not(.has-file) .preset-group {
+        grid-column: 1 / -1;
+      }
+
+      .params-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0 0 16px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #409eff;
+      }
+
+      .param-group {
+        margin-bottom: 18px;
+      }
+
+      /* 初始状态时去掉下边距，避免间隙过大 */
+      .left-sidebar:not(.has-file) .param-group {
+        margin-bottom: 0;
+      }
+
+      .param-label {
+        display: block;
+        font-size: 14px;
+        color: #606266;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      .param-description {
+        font-size: 12px;
+        color: #909399;
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+
+      .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f5f7fa;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .checkbox-wrapper:hover {
+        background: #e4e7ed;
+      }
+
+      .checkbox-wrapper input[type='checkbox'] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+      }
+
+      .checkbox-wrapper label {
+        font-size: 14px;
+        color: #606266;
+        cursor: pointer;
+        user-select: none;
+        flex: 1;
+      }
+
+      .param-input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .param-input:focus {
+        border-color: #409eff;
+      }
+
+      .param-input:disabled {
+        background: #f5f7fa;
+        cursor: not-allowed;
+      }
+
+      .color-input-wrapper {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .color-preview {
+        width: 40px;
+        height: 40px;
+        border: 1px solid #dcdfe6;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .color-text-input {
+        flex: 1;
+      }
+
+      .badge-recommend {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #67c23a;
+        color: #fff;
+        font-size: 11px;
+        border-radius: 3px;
+        margin-left: 6px;
+        font-weight: 500;
+      }
+
+      .preset-btn {
+        flex: 1;
+        padding: 8px 12px;
+        background: #fff;
+        border: 1px solid #409eff;
+        color: #409eff;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+      }
+
+      .preset-btn:hover {
+        background: #409eff;
+        color: #fff;
+      }
+
+      .preset-btn:active {
+        transform: scale(0.98);
       }
 
       .right-main {
-        display: flex !important;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #f5f7fa;
+      }
+
+      .right-main.init {
+        display: none;
       }
 
       .content-area {
-        grid-template-columns: 1fr;
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        padding: 20px;
+        overflow: hidden;
       }
-    }
 
-    /* 日志弹窗样式 */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
+      .panel {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
 
-    .modal-content {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      display: flex;
-      flex-direction: column;
-      max-height: 80vh;
-    }
+      .panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #ebeef5;
+        background: #fafafa;
+      }
 
-    .logs-modal {
-      width: 90%;
-      max-width: 900px;
-    }
+      .panel-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #303133;
+        margin: 0;
+      }
 
-    .modal-header {
-      padding: 20px;
-      border-bottom: 1px solid #e4e7ed;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+      .panel-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+      }
 
-    .modal-header h3 {
-      margin: 0;
-      font-size: 18px;
-      color: #303133;
-    }
+      .preview-container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
 
-    .modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #909399;
-      cursor: pointer;
-      padding: 0;
-      width: 32px;
-      height: 32px;
-      line-height: 1;
-      transition: color 0.3s;
-    }
+      .image-container {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+      }
 
-    .modal-close:hover {
-      color: #303133;
-    }
+      .image-wrapper {
+        position: relative;
+        font-size: 0;
+      }
 
-    .modal-body {
-      padding: 20px;
-      overflow: auto;
-      flex: 1;
-    }
+      .image-wrapper img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 4px;
+      }
 
-    .logs-content {
-      background: #f5f7fa;
-      padding: 15px;
-      border-radius: 4px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.5;
-      color: #303133;
-      white-space: pre-wrap;
-      word-break: break-all;
-      margin: 0;
-      max-height: 500px;
-      overflow-y: auto;
-    }
+      .pdf-container {
+        width: 100%;
+      }
 
-    .logs-loading,
-    .logs-error {
-      text-align: center;
-      padding: 40px;
-      color: #909399;
-      font-size: 14px;
-    }
+      .pdf-page {
+        position: relative;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+      }
 
-    .logs-error {
-      color: #f56c6c;
-    }
+      .pdf-page canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
 
-    .modal-footer {
-      padding: 20px;
-      border-top: 1px solid #e4e7ed;
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-    }
+      .pdf-page .pdf-preview-image {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
 
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
+      .page-number {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+      }
 
-    .btn-primary {
-      background: #409EFF;
-      color: white;
-    }
+      .ocr-box {
+        position: absolute;
+        background: rgba(64, 158, 255, 0.25);
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid rgba(64, 158, 255, 0.5);
+        border-radius: 2px;
+      }
 
-    .btn-primary:hover {
-      background: #66b1ff;
-    }
+      .ocr-box:hover {
+        background: rgba(64, 158, 255, 0.4);
+        border-color: rgba(64, 158, 255, 0.8);
+      }
 
-    .btn-secondary {
-      background: #f4f4f5;
-      color: #606266;
-      border: 1px solid #dcdfe6;
-    }
+      .ocr-box.highlight {
+        background: rgba(103, 194, 58, 0.5);
+        border-color: rgba(103, 194, 58, 0.9);
+        border-width: 2px;
+        z-index: 10;
+      }
 
-    .btn-secondary:hover {
-      background: #ecf5ff;
-      color: #409EFF;
-      border-color: #c6e2ff;
-    }
-  </style>
-</head>
+      .ocr-box.deleted {
+        background: transparent;
+        border: 1px dashed rgba(0, 0, 0, 0.3);
+      }
 
-<body>
-  <div id="app" v-cloak>
-    <div class="top-bar">
-      <h1 class="page-title">
-        WeChat OCR 识别服务
-        <a href="https://github.com/icheer/wxocr" target="_blank" rel="noopener noreferrer" class="github-link"
-          title="在 GitHub 上查看源码">
-          <svg class="github-icon" fill="currentColor" fill-rule="evenodd" viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg">
-            <title>GitHub</title>
-            <path
-              d="M12 0c6.63 0 12 5.276 12 11.79-.001 5.067-3.29 9.567-8.175 11.187-.6.118-.825-.25-.825-.56 0-.398.015-1.665.015-3.242 0-1.105-.375-1.813-.81-2.181 2.67-.295 5.475-1.297 5.475-5.822 0-1.297-.465-2.344-1.23-3.169.12-.295.54-1.503-.12-3.125 0 0-1.005-.324-3.3 1.209a11.32 11.32 0 00-3-.398c-1.02 0-2.04.133-3 .398-2.295-1.518-3.3-1.209-3.3-1.209-.66 1.622-.24 2.83-.12 3.125-.765.825-1.23 1.887-1.23 3.169 0 4.51 2.79 5.527 5.46 5.822-.345.294-.66.81-.765 1.577-.69.31-2.415.81-3.495-.973-.225-.354-.9-1.223-1.845-1.209-1.005.015-.405.56.015.781.51.28 1.095 1.327 1.23 1.666.24.663 1.02 1.93 4.035 1.385 0 .988.015 1.916.015 2.196 0 .31-.225.664-.825.56C3.303 21.374-.003 16.867 0 11.791 0 5.276 5.37 0 12 0z">
-            </path>
-          </svg>
-        </a>
-      </h1>
-      <div class="api-key-container">
-        <label class="api-key-label">API Key:</label>
-        <input type="password" class="api-key-input" v-model="apiKey" @input="saveApiKey" placeholder="可选，如服务端配置">
-        <button class="view-logs-btn" @click="viewLogs" title="查看服务端日志">📋 日志</button>
+      .ocr-box.deleted:hover {
+        background: rgba(103, 194, 58, 0.15);
+        border-color: rgba(103, 194, 58, 0.6);
+        border-style: solid;
+      }
+
+      .ocr-box.deleted.highlight {
+        background: rgba(103, 194, 58, 0.25);
+        border-color: rgba(103, 194, 58, 0.9);
+        border-width: 2px;
+        border-style: solid;
+        z-index: 10;
+      }
+
+      .text-section {
+        margin-bottom: 16px;
+        position: relative;
+      }
+
+      .text-display {
+        background: #f5f7fa;
+        padding: 12px 14px;
+        border-radius: 6px;
+        max-height: 180px;
+        overflow-y: auto;
+        position: relative;
+      }
+
+      .text-content {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 13px;
+        line-height: 1.8;
+        color: #606266;
+        margin: 0;
+        font-family: Consolas, Monaco, monospace;
+      }
+
+      .copy-btn {
+        position: sticky;
+        top: 0;
+        right: 0;
+        float: right;
+        padding: 5px 12px;
+        margin-bottom: 8px;
+        background: #409eff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background 0.2s;
+        box-shadow: 0 2px 4px rgba(64, 158, 255, 0.3);
+        z-index: 10;
+      }
+
+      .copy-btn:hover {
+        background: #66b1ff;
+      }
+
+      .copy-btn:active {
+        transform: scale(0.96);
+      }
+
+      .pdf-btn {
+        padding: 6px 16px;
+        background: #67c23a;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+        font-weight: 500;
+      }
+
+      .pdf-btn:hover:not(:disabled) {
+        background: #85ce61;
+      }
+
+      .pdf-btn:disabled {
+        background: #c0c4cc;
+        cursor: not-allowed;
+      }
+
+      .table-wrapper {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #ebeef5;
+        border-radius: 4px;
+      }
+
+      .result-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .result-table th,
+      .result-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #ebeef5;
+        font-size: 13px;
+      }
+
+      .result-table th {
+        background: #fafafa;
+        color: #606266;
+        font-weight: 600;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        white-space: nowrap;
+      }
+
+      .result-table td {
+        color: #606266;
+        word-break: break-word;
+      }
+
+      .result-table tbody tr {
+        transition: background 0.15s;
+      }
+
+      .result-table tbody tr:hover {
+        background: #f5f7fa;
+      }
+
+      .result-table tbody tr.highlight {
+        background: #ecf5ff !important;
+      }
+
+      .result-table tbody tr.deleted {
+        background: #f5f7fa;
+        color: #909399;
+        opacity: 0.6;
+      }
+
+      .result-table tbody tr.deleted .editable-text {
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+
+      .editable-cell {
+        padding: 0 !important;
+      }
+
+      .editable-text {
+        padding: 10px 12px;
+        min-height: 38px;
+        outline: none;
+        cursor: text;
+        transition: background 0.2s;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .editable-text:focus {
+        background: #ecf5ff;
+        border: 1px solid #409eff;
+        border-radius: 2px;
+      }
+
+      .result-table tbody tr.deleted .editable-text {
+        pointer-events: none;
+      }
+
+      .action-cell {
+        text-align: center;
+      }
+
+      .action-btn {
+        padding: 4px 12px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.2s;
+        font-weight: 500;
+      }
+
+      .delete-btn {
+        background: #f56c6c;
+        color: white;
+      }
+
+      .delete-btn:hover {
+        background: #f78989;
+      }
+
+      .restore-btn {
+        background: #409eff;
+        color: white;
+      }
+
+      .restore-btn:hover {
+        background: #66b1ff;
+      }
+
+      .action-btn:active {
+        transform: scale(0.95);
+      }
+
+      .copyable {
+        cursor: pointer;
+        color: #409eff;
+        transition: color 0.2s;
+      }
+
+      .copyable:hover {
+        color: #66b1ff;
+        text-decoration: underline;
+      }
+
+      .confidence {
+        font-weight: 600;
+        color: #67c23a;
+      }
+
+      .confidence.low {
+        color: #e6a23c;
+      }
+
+      .confidence.very-low {
+        color: #f56c6c;
+      }
+
+      .loading {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 20px 40px;
+        border-radius: 8px;
+        font-size: 14px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        text-align: center;
+        min-width: 200px;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #a8a8a8;
+      }
+
+      @media (max-width: 1200px) {
+        .content-area {
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 1fr;
+        }
+
+        .left-sidebar {
+          width: 320px;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .top-bar {
+          flex-direction: column;
+          gap: 12px;
+          align-items: flex-start;
+        }
+
+        .main-container {
+          flex-direction: column;
+        }
+
+        .left-sidebar {
+          width: 100%;
+          border-right: none;
+          border-bottom: 1px solid #e4e7ed;
+          max-height: 50vh;
+        }
+
+        .right-main {
+          display: flex !important;
+        }
+
+        .content-area {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* 日志弹窗样式 */
+      .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+
+      .modal-content {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        max-height: 80vh;
+      }
+
+      .logs-modal {
+        width: 90%;
+        max-width: 900px;
+      }
+
+      .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #e4e7ed;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-header h3 {
+        margin: 0;
+        font-size: 18px;
+        color: #303133;
+      }
+
+      .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #909399;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        line-height: 1;
+        transition: color 0.3s;
+      }
+
+      .modal-close:hover {
+        color: #303133;
+      }
+
+      .modal-body {
+        padding: 20px;
+        overflow: auto;
+        flex: 1;
+      }
+
+      .logs-content {
+        background: #f5f7fa;
+        padding: 15px;
+        border-radius: 4px;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        color: #303133;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+        max-height: 500px;
+        overflow-y: auto;
+      }
+
+      .logs-loading,
+      .logs-error {
+        text-align: center;
+        padding: 40px;
+        color: #909399;
+        font-size: 14px;
+      }
+
+      .logs-error {
+        color: #f56c6c;
+      }
+
+      .modal-footer {
+        padding: 20px;
+        border-top: 1px solid #e4e7ed;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .btn-primary {
+        background: #409eff;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #66b1ff;
+      }
+
+      .btn-secondary {
+        background: #f4f4f5;
+        color: #606266;
+        border: 1px solid #dcdfe6;
+      }
+
+      .btn-secondary:hover {
+        background: #ecf5ff;
+        color: #409eff;
+        border-color: #c6e2ff;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app" v-cloak>
+      <div class="top-bar">
+        <h1 class="page-title">
+          WeChat OCR 识别服务
+          <a
+            href="https://github.com/icheer/wxocr"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="github-link"
+            title="在 GitHub 上查看源码"
+          >
+            <svg
+              class="github-icon"
+              fill="currentColor"
+              fill-rule="evenodd"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <title>GitHub</title>
+              <path
+                d="M12 0c6.63 0 12 5.276 12 11.79-.001 5.067-3.29 9.567-8.175 11.187-.6.118-.825-.25-.825-.56 0-.398.015-1.665.015-3.242 0-1.105-.375-1.813-.81-2.181 2.67-.295 5.475-1.297 5.475-5.822 0-1.297-.465-2.344-1.23-3.169.12-.295.54-1.503-.12-3.125 0 0-1.005-.324-3.3 1.209a11.32 11.32 0 00-3-.398c-1.02 0-2.04.133-3 .398-2.295-1.518-3.3-1.209-3.3-1.209-.66 1.622-.24 2.83-.12 3.125-.765.825-1.23 1.887-1.23 3.169 0 4.51 2.79 5.527 5.46 5.822-.345.294-.66.81-.765 1.577-.69.31-2.415.81-3.495-.973-.225-.354-.9-1.223-1.845-1.209-1.005.015-.405.56.015.781.51.28 1.095 1.327 1.23 1.666.24.663 1.02 1.93 4.035 1.385 0 .988.015 1.916.015 2.196 0 .31-.225.664-.825.56C3.303 21.374-.003 16.867 0 11.791 0 5.276 5.37 0 12 0z"
+              ></path>
+            </svg>
+          </a>
+        </h1>
+        <div class="api-key-container">
+          <label class="api-key-label">API Key:</label>
+          <input
+            type="password"
+            class="api-key-input"
+            v-model="apiKey"
+            @input="saveApiKey"
+            placeholder="可选，如服务端配置"
+          />
+          <button
+            class="view-logs-btn"
+            @click="viewLogs"
+            title="查看服务端日志"
+          >
+            📋 日志
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="main-container">
-      <div class="left-sidebar" :class="{ init: !hasFile, 'has-file': hasFile }">
-        <div class="upload-section">
-          <div class="upload-area" :class="{ dragging: isDragging }" @dragover.prevent="handleDragOver"
-            @dragenter.prevent="handleDragOver" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop"
-            @click="$refs.fileInput.click()">
-            <input type="file" ref="fileInput" accept="image/*,.pdf" @change="handleFileUpload">
-            <div class="upload-icon">📤</div>
-            <p>点击选择文件或拖拽到此处</p>
-            <div class="file-type-tip">支持 JPG、PNG、PDF 等 | 或按 Ctrl+V 粘贴图片</div>
+      <div class="main-container">
+        <div
+          class="left-sidebar"
+          :class="{ init: !hasFile, 'has-file': hasFile }"
+        >
+          <div class="upload-section">
+            <div
+              class="upload-area"
+              :class="{ dragging: isDragging }"
+              @dragover.prevent="handleDragOver"
+              @dragenter.prevent="handleDragOver"
+              @dragleave.prevent="handleDragLeave"
+              @drop.prevent="handleDrop"
+              @click="$refs.fileInput.click()"
+            >
+              <input
+                type="file"
+                ref="fileInput"
+                accept="image/*,.pdf"
+                @change="handleFileUpload"
+              />
+              <div class="upload-icon">📤</div>
+              <p>点击选择文件或拖拽到此处</p>
+              <div class="file-type-tip">
+                支持 JPG、PNG、PDF 等 | 或按 Ctrl+V 粘贴图片
+              </div>
+            </div>
+          </div>
+          <div class="params-section">
+            <h3 class="params-title">高级参数</h3>
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="remove-watermark"
+                  v-model="params.removeWatermark"
+                />
+                <label for="remove-watermark">移除水印</label>
+              </div>
+              <p class="param-description">自动检测并移除图片中的水印</p>
+            </div>
+            <div class="param-group">
+              <label class="param-label">水印颜色</label>
+              <div class="color-input-wrapper">
+                <input
+                  type="color"
+                  class="color-preview"
+                  v-model="params.watermarkColor"
+                  :disabled="!params.removeWatermark"
+                />
+                <input
+                  type="text"
+                  class="param-input color-text-input"
+                  v-model="params.watermarkColor"
+                  max-length="7"
+                  :disabled="!params.removeWatermark"
+                  placeholder="#FFFFFF"
+                />
+              </div>
+              <p class="param-description">指定要移除的水印颜色（十六进制）</p>
+            </div>
+            <div class="param-group">
+              <label class="param-label"
+                >颜色容差 ({{ params.colorTolerance }})</label
+              >
+              <input
+                type="range"
+                class="param-input"
+                v-model.number="params.colorTolerance"
+                min="0"
+                max="255"
+                :disabled="!params.removeWatermark"
+                style="padding: 0; height: 32px"
+              />
+              <p class="param-description">
+                容差越大，移除的颜色范围越广 (0-255)
+              </p>
+            </div>
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input type="checkbox" id="deskew" v-model="params.deskew" />
+                <label for="deskew">自动纠偏</label>
+              </div>
+              <p class="param-description">自动检测并纠正图片的倾斜角度</p>
+            </div>
+
+            <!-- 新增：去噪 -->
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input type="checkbox" id="denoise" v-model="params.denoise" />
+                <label for="denoise">去除噪点</label>
+              </div>
+              <p class="param-description">
+                消除椒盐噪点和高斯噪声，提升识别率
+              </p>
+              <div v-if="params.denoise" style="margin-top: 8px">
+                <label class="param-label">去噪方法</label>
+                <select
+                  class="param-input"
+                  v-model="params.denoiseMethod"
+                  style="width: 100%"
+                >
+                  <option value="median">快速去噪（推荐）</option>
+                  <option value="fastNlMeans">高质量去噪（慢）</option>
+                  <option value="bilateral">双边滤波（保留边缘）</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 新增：对比度增强 -->
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="enhance-contrast"
+                  v-model="params.enhanceContrast"
+                />
+                <label for="enhance-contrast"
+                  >对比度增强 <span class="badge-recommend">推荐</span></label
+                >
+              </div>
+              <p class="param-description">
+                提升文字与背景的区分度，显著提高识别准确率
+              </p>
+              <div v-if="params.enhanceContrast" style="margin-top: 8px">
+                <label class="param-label">增强方法</label>
+                <select
+                  class="param-input"
+                  v-model="params.contrastMethod"
+                  style="width: 100%"
+                >
+                  <option value="clahe">自适应增强（推荐）</option>
+                  <option value="histogram">直方图均衡化</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 新增：二值化 -->
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="binarize"
+                  v-model="params.binarize"
+                />
+                <label for="binarize"
+                  >图像二值化 <span class="badge-recommend">推荐</span></label
+                >
+              </div>
+              <p class="param-description">
+                转为黑白图像，消除背景干扰（适合扫描件）
+              </p>
+              <div v-if="params.binarize" style="margin-top: 8px">
+                <label class="param-label">二值化方法</label>
+                <select
+                  class="param-input"
+                  v-model="params.binarizeMethod"
+                  style="width: 100%"
+                >
+                  <option value="gaussian">自适应阈值（推荐）</option>
+                  <option value="otsu">Otsu 方法</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 新增：锐化 -->
+            <div class="param-group">
+              <div class="checkbox-wrapper">
+                <input
+                  type="checkbox"
+                  id="sharpen"
+                  v-model="params.sharpen"
+                  :disabled="params.binarize"
+                />
+                <label for="sharpen">图像锐化</label>
+              </div>
+              <p class="param-description">
+                增强文字边缘（与二值化互斥，模糊图片可用）
+              </p>
+              <div
+                v-if="params.sharpen && !params.binarize"
+                style="margin-top: 8px"
+              >
+                <label class="param-label"
+                  >锐化强度 ({{ params.sharpenStrength.toFixed(1) }})</label
+                >
+                <input
+                  type="range"
+                  class="param-input"
+                  v-model.number="params.sharpenStrength"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  style="padding: 0; height: 32px"
+                />
+              </div>
+            </div>
+
+            <!-- 快捷预设 -->
+            <div
+              class="param-group preset-group"
+              style="
+                border-top: 1px solid #e4e7ed;
+                padding-top: 15px;
+                margin-top: 10px;
+              "
+            >
+              <label class="param-label">快捷预设</label>
+              <div style="display: flex; gap: 8px; margin-top: 8px">
+                <button class="preset-btn" @click="applyPreset('auto')">
+                  智能预设
+                </button>
+                <button class="preset-btn" @click="applyPreset('scan')">
+                  扫描件
+                </button>
+                <button class="preset-btn" @click="applyPreset('photo')">
+                  照片
+                </button>
+                <button class="preset-btn" @click="applyPreset('clear')">
+                  清除全部
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="params-section">
-          <h3 class="params-title">高级参数</h3>
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="remove-watermark" v-model="params.removeWatermark">
-              <label for="remove-watermark">移除水印</label>
-            </div>
-            <p class="param-description">自动检测并移除图片中的水印</p>
-          </div>
-          <div class="param-group">
-            <label class="param-label">水印颜色</label>
-            <div class="color-input-wrapper">
-              <input type="color" class="color-preview" v-model="params.watermarkColor"
-                :disabled="!params.removeWatermark">
-              <input type="text" class="param-input color-text-input" v-model="params.watermarkColor"
-                :disabled="!params.removeWatermark" placeholder="#FFFFFF">
-            </div>
-            <p class="param-description">指定要移除的水印颜色（十六进制）</p>
-          </div>
-          <div class="param-group">
-            <label class="param-label">颜色容差 ({{ params.colorTolerance }})</label>
-            <input type="range" class="param-input" v-model.number="params.colorTolerance" min="0" max="255"
-              :disabled="!params.removeWatermark" style="padding:0;height:32px;">
-            <p class="param-description">容差越大，移除的颜色范围越广 (0-255)</p>
-          </div>
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="deskew" v-model="params.deskew">
-              <label for="deskew">自动纠偏</label>
-            </div>
-            <p class="param-description">自动检测并纠正图片的倾斜角度</p>
-          </div>
-
-          <!-- 新增：去噪 -->
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="denoise" v-model="params.denoise">
-              <label for="denoise">去除噪点</label>
-            </div>
-            <p class="param-description">消除椒盐噪点和高斯噪声，提升识别率</p>
-            <div v-if="params.denoise" style="margin-top: 8px;">
-              <label class="param-label">去噪方法</label>
-              <select class="param-input" v-model="params.denoiseMethod" style="width: 100%;">
-                <option value="median">快速去噪（推荐）</option>
-                <option value="fastNlMeans">高质量去噪（慢）</option>
-                <option value="bilateral">双边滤波（保留边缘）</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 新增：对比度增强 -->
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="enhance-contrast" v-model="params.enhanceContrast">
-              <label for="enhance-contrast">对比度增强 <span class="badge-recommend">推荐</span></label>
-            </div>
-            <p class="param-description">提升文字与背景的区分度，显著提高识别准确率</p>
-            <div v-if="params.enhanceContrast" style="margin-top: 8px;">
-              <label class="param-label">增强方法</label>
-              <select class="param-input" v-model="params.contrastMethod" style="width: 100%;">
-                <option value="clahe">自适应增强（推荐）</option>
-                <option value="histogram">直方图均衡化</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 新增：二值化 -->
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="binarize" v-model="params.binarize">
-              <label for="binarize">图像二值化 <span class="badge-recommend">推荐</span></label>
-            </div>
-            <p class="param-description">转为黑白图像，消除背景干扰（适合扫描件）</p>
-            <div v-if="params.binarize" style="margin-top: 8px;">
-              <label class="param-label">二值化方法</label>
-              <select class="param-input" v-model="params.binarizeMethod" style="width: 100%;">
-                <option value="gaussian">自适应阈值（推荐）</option>
-                <option value="otsu">Otsu 方法</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 新增：锐化 -->
-          <div class="param-group">
-            <div class="checkbox-wrapper">
-              <input type="checkbox" id="sharpen" v-model="params.sharpen" :disabled="params.binarize">
-              <label for="sharpen">图像锐化</label>
-            </div>
-            <p class="param-description">增强文字边缘（与二值化互斥，模糊图片可用）</p>
-            <div v-if="params.sharpen && !params.binarize" style="margin-top: 8px;">
-              <label class="param-label">锐化强度 ({{ params.sharpenStrength.toFixed(1) }})</label>
-              <input type="range" class="param-input" v-model.number="params.sharpenStrength"
-                     min="0.5" max="2.0" step="0.1" style="padding:0;height:32px;">
-            </div>
-          </div>
-
-          <!-- 快捷预设 -->
-          <div class="param-group preset-group" style="border-top: 1px solid #e4e7ed; padding-top: 15px; margin-top: 10px;">
-            <label class="param-label">快捷预设</label>
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-              <button class="preset-btn" @click="applyPreset('auto')">智能预设</button>
-              <button class="preset-btn" @click="applyPreset('scan')">扫描件</button>
-              <button class="preset-btn" @click="applyPreset('photo')">照片</button>
-              <button class="preset-btn" @click="applyPreset('clear')">清除全部</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="right-main" :class="{ init: !hasFile }">
-        <div class="content-area">
-          <div class="panel">
-            <div class="panel-header">
-              <h3 class="panel-title">{{ isPdf ? 'PDF 预览' : '图片预览' }}</h3>
-            </div>
-            <div class="panel-body">
-              <div v-if="!isPdf && imageUrl" class="preview-container">
-                <div class="image-container">
-                  <div class="image-wrapper">
-                    <img :src="imageUrl" alt="Preview">
-                    <div v-for="(result, index) in ocrResults" :key="'box-' + index" class="ocr-box"
-                      :class="{ highlight: hoveredIndex === index, deleted: result.deleted }"
-                      :style="{ left: (result.left / imageWidth * 100) + '%', top: (result.top / imageHeight * 100) + '%', width: ((result.right - result.left) / imageWidth * 100) + '%', height: ((result.bottom - result.top) / imageHeight * 100) + '%' }"
-                      @mouseenter="hoveredIndex = index" @mouseleave="hoveredIndex = -1"
-                      @click="copyRowText(result)"></div>
+        <div class="right-main" :class="{ init: !hasFile }">
+          <div class="content-area">
+            <div class="panel">
+              <div class="panel-header">
+                <h3 class="panel-title">
+                  {{ isPdf ? 'PDF 预览' : '图片预览' }}
+                </h3>
+              </div>
+              <div class="panel-body">
+                <div v-if="!isPdf && imageUrl" class="preview-container">
+                  <div class="image-container">
+                    <div class="image-wrapper">
+                      <img :src="imageUrl" alt="Preview" />
+                      <div
+                        v-for="(result, index) in ocrResults"
+                        :key="'box-' + index"
+                        class="ocr-box"
+                        :class="{ highlight: hoveredIndex === index, deleted: result.deleted }"
+                        :style="{ left: (result.left / imageWidth * 100) + '%', top: (result.top / imageHeight * 100) + '%', width: ((result.right - result.left) / imageWidth * 100) + '%', height: ((result.bottom - result.top) / imageHeight * 100) + '%' }"
+                        @mouseenter="hoveredIndex = index"
+                        @mouseleave="hoveredIndex = -1"
+                        @click="copyRowText(result)"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="isPdf" class="pdf-container">
+                  <div
+                    v-for="page in pdfPages"
+                    :key="'page-' + page.pageNumber"
+                    class="pdf-page"
+                  >
+                    <!-- 优先显示预处理后的图片 -->
+                    <img
+                      v-if="page.previewImageUrl"
+                      :src="page.previewImageUrl"
+                      :alt="'第 ' + page.pageNumber + ' 页'"
+                      class="pdf-preview-image"
+                    />
+                    <!-- 没有预处理图片时，使用 PDF.js 渲染 -->
+                    <canvas
+                      v-else
+                      :id="'pdf-canvas-' + page.pageNumber"
+                    ></canvas>
+                    <span class="page-number">第 {{ page.pageNumber }} 页</span>
+                    <div
+                      v-for="(result, index) in page.ocrResults"
+                      :key="'pdf-box-' + page.pageNumber + '-' + index"
+                      class="ocr-box"
+                      :class="{ highlight: hoveredIndex === page.pageNumber + '-' + index, deleted: result.deleted }"
+                      :style="{ left: (result.left / page.width * 100) + '%', top: (result.top / page.height * 100) + '%', width: ((result.right - result.left) / page.width * 100) + '%', height: ((result.bottom - result.top) / page.height * 100) + '%' }"
+                      @mouseenter="hoveredIndex = page.pageNumber + '-' + index"
+                      @mouseleave="hoveredIndex = -1"
+                      @click="copyRowText(result)"
+                    ></div>
                   </div>
                 </div>
               </div>
-              <div v-if="isPdf" class="pdf-container">
-                <div v-for="page in pdfPages" :key="'page-' + page.pageNumber" class="pdf-page">
-                  <!-- 优先显示预处理后的图片 -->
-                  <img v-if="page.previewImageUrl"
-                       :src="page.previewImageUrl"
-                       :alt="'第 ' + page.pageNumber + ' 页'"
-                       class="pdf-preview-image">
-                  <!-- 没有预处理图片时，使用 PDF.js 渲染 -->
-                  <canvas v-else :id="'pdf-canvas-' + page.pageNumber"></canvas>
-                  <span class="page-number">第 {{ page.pageNumber }} 页</span>
-                  <div v-for="(result, index) in page.ocrResults" :key="'pdf-box-' + page.pageNumber + '-' + index"
-                    class="ocr-box" :class="{ highlight: hoveredIndex === page.pageNumber + '-' + index, deleted: result.deleted }"
-                    :style="{ left: (result.left / page.width * 100) + '%', top: (result.top / page.height * 100) + '%', width: ((result.right - result.left) / page.width * 100) + '%', height: ((result.bottom - result.top) / page.height * 100) + '%' }"
-                    @mouseenter="hoveredIndex = page.pageNumber + '-' + index" @mouseleave="hoveredIndex = -1"
-                    @click="copyRowText(result)"></div>
-                </div>
-              </div>
             </div>
-          </div>
-          <div class="panel">
-            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
-              <h3 class="panel-title">识别结果</h3>
-              <button class="pdf-btn" @click="embedAndDownloadPdf"
-                :disabled="!displayResults.length || loading || isEmbedding">
-                {{ isEmbedding ? '生成中...' : '嵌入并下载PDF' }}
-              </button>
-            </div>
-            <div class="panel-body" style="display:flex;flex-direction:column;padding:16px;">
-              <div class="text-section">
-                <div class="text-display">
-                  <button class="copy-btn" @click="copyAllText">复制全部</button>
-                  <pre class="text-content">{{ dynamicFullText || '暂无识别结果' }}</pre>
-                </div>
+            <div class="panel">
+              <div
+                class="panel-header"
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <h3 class="panel-title">识别结果</h3>
+                <button
+                  class="pdf-btn"
+                  @click="embedAndDownloadPdf"
+                  :disabled="!displayResults.length || loading || isEmbedding"
+                >
+                  {{ isEmbedding ? '生成中...' : '嵌入并下载PDF' }}
+                </button>
               </div>
-              <div class="table-wrapper">
-                <table class="result-table">
-                  <thead>
-                    <tr>
-                      <th style="width:50px;">#</th>
-                      <th v-if="isPdf" style="width:60px;">页码</th>
-                      <th>文本内容</th>
-                      <th style="width:80px;">置信度</th>
-                      <th style="width:100px;">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(item, index) in displayResults" :key="'result-' + index"
-                      :class="{ highlight: hoveredIndex === item.id, deleted: item.deleted }"
-                      @mouseenter="hoveredIndex = item.id" @mouseleave="hoveredIndex = -1">
-                      <td>{{ index + 1 }}</td>
-                      <td v-if="isPdf">{{ item.pageNumber }}</td>
-                      <td class="editable-cell">
-                        <div contenteditable="true" @blur="updateText(item, $event.target.textContent)"
-                          @keydown.enter.prevent="$event.target.blur()" class="editable-text">{{ item.editedText ||
-                          item.text }}</div>
-                      </td>
-                      <td class="confidence" :class="{ low: item.rate < 0.7, 'very-low': item.rate < 0.5 }">{{
-                        (item.rate * 100).toFixed(0) }}%</td>
-                      <td class="action-cell">
-                        <button v-if="!item.deleted" class="action-btn delete-btn" @click="deleteRow(item)">删除</button>
-                        <button v-else class="action-btn restore-btn" @click="restoreRow(item)">还原</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div
+                class="panel-body"
+                style="display: flex; flex-direction: column; padding: 16px"
+              >
+                <div class="text-section">
+                  <div class="text-display">
+                    <button class="copy-btn" @click="copyAllText">
+                      复制全部
+                    </button>
+                    <pre class="text-content">
+{{ dynamicFullText || '暂无识别结果' }}</pre
+                    >
+                  </div>
+                </div>
+                <div class="table-wrapper">
+                  <table class="result-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 50px">#</th>
+                        <th v-if="isPdf" style="width: 60px">页码</th>
+                        <th>文本内容</th>
+                        <th style="width: 80px">置信度</th>
+                        <th style="width: 100px">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="(item, index) in displayResults"
+                        :key="'result-' + index"
+                        :class="{ highlight: hoveredIndex === item.id, deleted: item.deleted }"
+                        @mouseenter="hoveredIndex = item.id"
+                        @mouseleave="hoveredIndex = -1"
+                      >
+                        <td>{{ index + 1 }}</td>
+                        <td v-if="isPdf">{{ item.pageNumber }}</td>
+                        <td class="editable-cell">
+                          <div
+                            contenteditable="true"
+                            @blur="updateText(item, $event.target.textContent)"
+                            @keydown.enter.prevent="$event.target.blur()"
+                            class="editable-text"
+                          >
+                            {{ item.editedText || item.text }}
+                          </div>
+                        </td>
+                        <td
+                          class="confidence"
+                          :class="{ low: item.rate < 0.7, 'very-low': item.rate < 0.5 }"
+                        >
+                          {{ (item.rate * 100).toFixed(0) }}%
+                        </td>
+                        <td class="action-cell">
+                          <button
+                            v-if="!item.deleted"
+                            class="action-btn delete-btn"
+                            @click="deleteRow(item)"
+                          >
+                            删除
+                          </button>
+                          <button
+                            v-else
+                            class="action-btn restore-btn"
+                            @click="restoreRow(item)"
+                          >
+                            还原
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div v-if="loading" class="loading">{{ loadingText }}</div>
+      <div v-if="loading" class="loading">{{ loadingText }}</div>
 
-    <!-- 日志查看弹窗 -->
-    <div v-if="showLogsModal" class="modal-overlay" @click="showLogsModal = false">
-      <div class="modal-content logs-modal" @click.stop>
-        <div class="modal-header">
-          <h3>服务端日志（最新100行）</h3>
-          <button class="modal-close" @click="showLogsModal = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div v-if="logsLoading" class="logs-loading">加载中...</div>
-          <div v-else-if="logsError" class="logs-error">{{ logsError }}</div>
-          <pre v-else class="logs-content">{{ logsContent }}</pre>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showLogsModal = false">关闭</button>
-          <button class="btn btn-primary" @click="refreshLogs">刷新</button>
+      <!-- 日志查看弹窗 -->
+      <div
+        v-if="showLogsModal"
+        class="modal-overlay"
+        @click="showLogsModal = false"
+      >
+        <div class="modal-content logs-modal" @click.stop>
+          <div class="modal-header">
+            <h3>服务端日志（最新100行）</h3>
+            <button class="modal-close" @click="showLogsModal = false">
+              ✕
+            </button>
+          </div>
+          <div class="modal-body">
+            <div v-if="logsLoading" class="logs-loading">加载中...</div>
+            <div v-else-if="logsError" class="logs-error">{{ logsError }}</div>
+            <pre v-else class="logs-content">{{ logsContent }}</pre>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" @click="showLogsModal = false">
+              关闭
+            </button>
+            <button class="btn btn-primary" @click="refreshLogs">刷新</button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-  </div>
-  <script src="./app.js"></script>
-</body>
-
+    <script src="./app.js"></script>
+  </body>
 </html>
