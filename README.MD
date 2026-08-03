@@ -48,6 +48,7 @@
   - 纯文本 PDF：直接提取（秒级响应）
   - 扫描 PDF：整页渲染后 OCR
   - 混合 PDF：文本提取 + 图片 OCR
+- ✅ **智能文本排版** - 自动识别行、列、段落结构，优化表格和多列布局的文本输出
 - ✅ **智能预处理** - 6 种图像预处理算法，科学的工作流顺序
   - **水印去除** - 指定色值或自动检测浅色水印
   - **自动纠偏** - 自动检测并纠正扫描件倾斜
@@ -322,6 +323,7 @@ print(f'生成的 PDF: {embedded_pdf}')
 | GET | `/` | Web 界面主页 |
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/ocr` | OCR 识别 |
+| POST | `/api/smart-format` | 智能文本排版（将 OCR 结果智能排版为易读格式） |
 | POST | `/api/embed` | 嵌入文本生成 PDF |
 | POST | `/api/ocr-and-embed` | 一站式 OCR + 嵌入（直接生成可搜索PDF） |
 | GET | `/api/temp/<filename>` | 获取临时文件（预处理图片预览，支持 query 参数鉴权） |
@@ -376,6 +378,89 @@ curl -H "Authorization: Bearer your_secret_key" ...
 | `ocr_response` | Array | 条件 | 图片模式时必填，文本块数组 |
 | `pages` | Array | 条件 | PDF 模式时必填，页面数据数组 |
 | `apply_preprocessing` | Boolean | ❌ | 是否使用预处理后的版本（去水印/纠偏后），默认 false。图片模式直接使用预处理图片；PDF模式使用预处理后的页面图片重建PDF |
+
+### 智能排版接口
+
+**端点**: `POST /api/smart-format`
+
+**认证**: 需要 Bearer Token（如已配置 `API_KEY`）
+
+**功能**: 将 OCR 识别结果智能排版为易读的文本格式。自动识别行、列、段落结构，适合处理包含表格或多列布局的文档。
+
+**适用场景**: 
+- 包含表格的扫描文档（如财务报表、数据表格）
+- 多列布局的文档（如报纸、杂志）
+- 需要保持原始排版结构的文档
+
+**请求参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `ocr_response` | Array | ✅ | OCR 识别结果数组（包含 text, left, top, right, bottom, rate 字段） |
+| `options` | Object | ❌ | 可选参数配置 |
+
+**options 参数说明**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `row_threshold_ratio` | Float | 0.5 | 行聚合阈值系数（用于判断文本块是否属于同一行） |
+| `gap_threshold_ratio` | Float | 1.2 | 列间距判断系数（间距大于中位间距×该系数时识别为列分隔）<br>**调整建议**：表格列较密集时可降低到 1.0-1.1，列较稀疏时可提高到 1.3-1.5 |
+| `paragraph_spacing_ratio` | Float | 1.5 | 段落间距判断系数（用于插入空行分隔段落） |
+| `min_confidence` | Float | 0.3 | 最低置信度阈值（过滤低置信度文本块） |
+| `column_separator` | String | `"    "` | 列分隔符（默认4个空格，也可使用 `" \| "` 等） |
+
+**请求示例**:
+
+```bash
+curl -X POST http://localhost:5000/api/smart-format \
+  -H "Authorization: Bearer your_secret_key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ocr_response": [
+      {"text": "姓名", "left": 10, "top": 10, "right": 50, "bottom": 30, "rate": 0.98},
+      {"text": "张三", "left": 200, "top": 10, "right": 240, "bottom": 30, "rate": 0.95}
+    ],
+    "options": {
+      "gap_threshold_ratio": 1.2,
+      "column_separator": "    "
+    }
+  }'
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "data": {
+    "formatted_text": "姓名    张三\n年龄    25\n地址    北京市\n\n备注：以上信息仅供参考",
+    "metadata": {
+      "row_count": 5,
+      "column_count": 2,
+      "paragraph_count": 2,
+      "filtered_blocks": 1
+    }
+  }
+}
+```
+
+**响应字段说明**:
+
+- `formatted_text`: 格式化后的文本，列之间用指定分隔符连接，段落之间用空行分隔
+- `metadata.row_count`: 识别到的行数
+- `metadata.column_count`: 识别到的最大列数
+- `metadata.paragraph_count`: 识别到的段落数
+- `metadata.filtered_blocks`: 被过滤的低置信度文本块数量
+
+**使用提示**:
+
+1. **表格识别优化**: 如果表格列间距识别不准确，可调整 `gap_threshold_ratio` 参数：
+   - 列分隔过多（正常文字被拆分）：增大该值（如 1.3-1.5）
+   - 列分隔过少（多列被合并）：减小该值（如 1.0-1.1）
+   
+2. **Web 界面集成**: 前端已集成"智能排版并复制"按钮，自动调用该接口并复制格式化文本
+
+3. **与 OCR 接口配合使用**: 先调用 `/api/ocr` 获取 `ocr_response`，再调用 `/api/smart-format` 进行智能排版
 
 ### OCR-and-Embed 一站式接口
 

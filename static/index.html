@@ -194,26 +194,50 @@
 
       .params-section {
         padding: 20px;
-        flex: 1;
+        flex: 0 1 auto;
         overflow-y: auto;
       }
 
-      /* 初始状态：Grid 横向排列 */
+      /* 初始状态：Flexbox 横向排列 */
       .left-sidebar:not(.has-file) .params-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
-        align-items: start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-start; /* 关键：防止子元素被拉伸 */
       }
 
-      /* 初始状态：标题占据整行 */
+      /* 初始状态：标题样式 */
       .left-sidebar:not(.has-file) .params-title {
-        grid-column: 1 / -1;
+        flex: 0 0 auto; /* 不拉伸，使用内容高度 */
+        width: 100%;
+        margin: 0 !important; /* 完全移除margin */
+        padding-bottom: 6px !important;
+        line-height: normal !important;
+      }
+
+      /* 初始状态：卡片样式 */
+      .left-sidebar:not(.has-file) .param-group {
+        flex: 0 0 calc((100% - 24px) / 3); /* 3列布局 */
+        margin-bottom: 0;
+        padding: 14px;
+        background: #f9fafb;
+        border-radius: 6px;
+        border: 1px solid #e4e7ed;
+        min-height: 124px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .left-sidebar:not(.has-file) .param-group .param-description {
+        padding-top: 6px;
       }
 
       /* 初始状态：快捷预设也占据整行 */
       .left-sidebar:not(.has-file) .preset-group {
-        grid-column: 1 / -1;
+        flex: 0 0 60%; /* 改为 flexbox 语法，占据整行 */
+        width: 60%;
+        margin: 0 auto;
       }
 
       .params-title {
@@ -221,17 +245,12 @@
         font-weight: 600;
         color: #303133;
         margin: 0 0 16px;
-        padding-bottom: 8px;
+        padding-bottom: 6px;
         border-bottom: 2px solid #409eff;
       }
 
       .param-group {
         margin-bottom: 18px;
-      }
-
-      /* 初始状态时去掉下边距，避免间隙过大 */
-      .left-sidebar:not(.has-file) .param-group {
-        margin-bottom: 0;
       }
 
       .param-label {
@@ -246,6 +265,7 @@
         font-size: 12px;
         color: #909399;
         margin-top: 4px;
+        margin-bottom: 0;
         line-height: 1.4;
       }
 
@@ -256,6 +276,7 @@
         padding: 8px 12px;
         background: #f5f7fa;
         border-radius: 4px;
+        font-size: 14px;
         cursor: pointer;
         transition: background 0.2s;
       }
@@ -364,8 +385,8 @@
         flex: 1;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        padding: 20px;
+        gap: 12px;
+        padding: 12px;
         overflow: hidden;
       }
 
@@ -385,6 +406,8 @@
       }
 
       .panel-title {
+        height: 29px;
+        line-height: 29px;
         font-size: 15px;
         font-weight: 600;
         color: #303133;
@@ -419,6 +442,7 @@
         height: auto;
         display: block;
         border-radius: 4px;
+        user-select: none;
       }
 
       .pdf-container {
@@ -990,14 +1014,14 @@
           <div class="params-section">
             <h3 class="params-title">高级参数</h3>
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="remove-watermark">
                 <input
                   type="checkbox"
                   id="remove-watermark"
                   v-model="params.removeWatermark"
                 />
-                <label for="remove-watermark">移除水印</label>
-              </div>
+                <span>移除水印</span>
+              </label>
               <p class="param-description">自动检测并移除图片中的水印</p>
             </div>
             <div v-if="params.removeWatermark" class="param-group">
@@ -1038,19 +1062,19 @@
               </p>
             </div>
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="deskew">
                 <input type="checkbox" id="deskew" v-model="params.deskew" />
-                <label for="deskew">自动纠偏</label>
-              </div>
+                <span>自动纠偏</span>
+              </label>
               <p class="param-description">自动检测并纠正图片的倾斜角度</p>
             </div>
 
             <!-- 新增：去噪 -->
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="denoise">
                 <input type="checkbox" id="denoise" v-model="params.denoise" />
-                <label for="denoise">去除噪点</label>
-              </div>
+                <span>去除噪点</span>
+              </label>
               <p class="param-description">
                 消除椒盐噪点和高斯噪声，提升识别率
               </p>
@@ -1070,16 +1094,16 @@
 
             <!-- 新增：对比度增强 -->
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="enhance-contrast">
                 <input
                   type="checkbox"
                   id="enhance-contrast"
                   v-model="params.enhanceContrast"
                 />
-                <label for="enhance-contrast"
-                  >对比度增强 <span class="badge-recommend">推荐</span></label
+                <span
+                  >对比度增强 <span class="badge-recommend">推荐</span></span
                 >
-              </div>
+              </label>
               <p class="param-description">
                 提升文字与背景的区分度，显著提高识别准确率
               </p>
@@ -1098,16 +1122,16 @@
 
             <!-- 新增：二值化 -->
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="binarize">
                 <input
                   type="checkbox"
                   id="binarize"
                   v-model="params.binarize"
                 />
-                <label for="binarize"
-                  >图像二值化 <span class="badge-recommend">推荐</span></label
+                <span
+                  >图像二值化 <span class="badge-recommend">推荐</span></span
                 >
-              </div>
+              </label>
               <p class="param-description">
                 转为黑白图像，消除背景干扰（适合扫描件）
               </p>
@@ -1126,15 +1150,15 @@
 
             <!-- 新增：锐化 -->
             <div class="param-group">
-              <div class="checkbox-wrapper">
+              <label class="checkbox-wrapper" for="sharpen">
                 <input
                   type="checkbox"
                   id="sharpen"
                   v-model="params.sharpen"
                   :disabled="params.binarize"
                 />
-                <label for="sharpen">图像锐化</label>
-              </div>
+                <span>图像锐化</span>
+              </label>
               <p class="param-description">
                 增强文字边缘（与二值化互斥，模糊图片可用）
               </p>
@@ -1196,7 +1220,7 @@
                 <div v-if="!isPdf && imageUrl" class="preview-container">
                   <div class="image-container">
                     <div class="image-wrapper">
-                      <img :src="imageUrl" alt="Preview" />
+                      <img :src="imageUrl" alt="Preview" draggable="false" />
                       <div
                         v-for="(result, index) in ocrResults"
                         :key="'box-' + index"
@@ -1222,6 +1246,7 @@
                       :src="page.previewImageUrl"
                       :alt="'第 ' + page.pageNumber + ' 页'"
                       class="pdf-preview-image"
+                      draggable="false"
                     />
                     <!-- 没有预处理图片时，使用 PDF.js 渲染 -->
                     <canvas
