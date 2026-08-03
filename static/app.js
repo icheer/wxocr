@@ -372,6 +372,13 @@ createApp({
       this.showToast('已复制全部文本', 'success');
     },
 
+    // 复制单行文本
+    copyRowText(result) {
+      const text = result.editedText || result.text;
+      this.copyToClipboard(text);
+      this.showToast('已复制此行文本', 'success');
+    },
+
     // 编辑文本
     updateText(result, newText) {
       // 直接修改对象属性，Vue 3 会自动追踪

@@ -475,6 +475,16 @@
       z-index: 10;
     }
 
+    .ocr-box.deleted {
+      background: transparent;
+      border: 1px dashed rgba(0, 0, 0, 0.3);
+    }
+
+    .ocr-box.deleted:hover {
+      background: transparent;
+      border-color: rgba(0, 0, 0, 0.5);
+    }
+
     .text-section {
       margin-bottom: 16px;
       position: relative;
@@ -1047,9 +1057,10 @@
                   <div class="image-wrapper">
                     <img :src="imageUrl" alt="Preview">
                     <div v-for="(result, index) in ocrResults" :key="'box-' + index" class="ocr-box"
-                      :class="{ highlight: hoveredIndex === index }"
+                      :class="{ highlight: hoveredIndex === index, deleted: result.deleted }"
                       :style="{ left: (result.left / imageWidth * 100) + '%', top: (result.top / imageHeight * 100) + '%', width: ((result.right - result.left) / imageWidth * 100) + '%', height: ((result.bottom - result.top) / imageHeight * 100) + '%' }"
-                      @mouseenter="hoveredIndex = index" @mouseleave="hoveredIndex = -1"></div>
+                      @mouseenter="hoveredIndex = index" @mouseleave="hoveredIndex = -1"
+                      @click="copyRowText(result)"></div>
                   </div>
                 </div>
               </div>
@@ -1064,9 +1075,10 @@
                   <canvas v-else :id="'pdf-canvas-' + page.pageNumber"></canvas>
                   <span class="page-number">第 {{ page.pageNumber }} 页</span>
                   <div v-for="(result, index) in page.ocrResults" :key="'pdf-box-' + page.pageNumber + '-' + index"
-                    class="ocr-box" :class="{ highlight: hoveredIndex === page.pageNumber + '-' + index }"
+                    class="ocr-box" :class="{ highlight: hoveredIndex === page.pageNumber + '-' + index, deleted: result.deleted }"
                     :style="{ left: (result.left / page.width * 100) + '%', top: (result.top / page.height * 100) + '%', width: ((result.right - result.left) / page.width * 100) + '%', height: ((result.bottom - result.top) / page.height * 100) + '%' }"
-                    @mouseenter="hoveredIndex = page.pageNumber + '-' + index" @mouseleave="hoveredIndex = -1"></div>
+                    @mouseenter="hoveredIndex = page.pageNumber + '-' + index" @mouseleave="hoveredIndex = -1"
+                    @click="copyRowText(result)"></div>
                 </div>
               </div>
             </div>
