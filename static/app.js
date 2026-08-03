@@ -1,7 +1,8 @@
 const { createApp } = Vue;
 
 // 配置 PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
 createApp({
   data() {
@@ -20,9 +21,9 @@ createApp({
       hasFile: false,
       isPdf: false,
       currentFile: null,
-      filePath: '',  // 保存临时文件路径（image_path 或 pdf_path）
-      isEmbedding: false,  // 正在嵌入PDF的标记
-      isFormatting: false,  // 正在智能排版的标记
+      filePath: '', // 保存临时文件路径（image_path 或 pdf_path）
+      isEmbedding: false, // 正在嵌入PDF的标记
+      isFormatting: false, // 正在智能排版的标记
       // 日志查看相关
       showLogsModal: false,
       logsContent: '',
@@ -52,7 +53,7 @@ createApp({
         const results = [];
         this.pdfPages.forEach(page => {
           if (page.ocrResults) {
-            page.ocrResults.forEach((result) => {
+            page.ocrResults.forEach(result => {
               results.push(result);
             });
           }
@@ -151,7 +152,9 @@ createApp({
       if (!file) return;
 
       // 检查文件类型
-      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const isPdf =
+        file.type === 'application/pdf' ||
+        file.name.toLowerCase().endsWith('.pdf');
       const isImage = file.type.startsWith('image/');
 
       if (!isPdf && !isImage) {
@@ -176,7 +179,7 @@ createApp({
     async processImage(file) {
       // 显示图片预览
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         this.imageUrl = e.target.result;
         // 获取图片尺寸
         const img = new Image();
@@ -241,17 +244,26 @@ createApp({
       formData.append('file', file);
 
       // 添加预处理参数
-      formData.append('remove_watermark', this.params.removeWatermark ? 'true' : 'false');
+      formData.append(
+        'remove_watermark',
+        this.params.removeWatermark ? 'true' : 'false'
+      );
       formData.append('deskew', this.params.deskew ? 'true' : 'false');
       formData.append('denoise', this.params.denoise ? 'true' : 'false');
-      formData.append('enhance_contrast', this.params.enhanceContrast ? 'true' : 'false');
+      formData.append(
+        'enhance_contrast',
+        this.params.enhanceContrast ? 'true' : 'false'
+      );
       formData.append('binarize', this.params.binarize ? 'true' : 'false');
       formData.append('sharpen', this.params.sharpen ? 'true' : 'false');
 
       // 如果启用了水印移除，添加水印颜色和容差
       if (this.params.removeWatermark) {
         formData.append('watermark_color', this.params.watermarkColor);
-        formData.append('watermark_tolerance', this.params.colorTolerance.toString());
+        formData.append(
+          'watermark_tolerance',
+          this.params.colorTolerance.toString()
+        );
       }
 
       // 添加预处理方法参数
@@ -265,7 +277,10 @@ createApp({
         formData.append('binarize_method', this.params.binarizeMethod);
       }
       if (this.params.sharpen) {
-        formData.append('sharpen_strength', this.params.sharpenStrength.toString());
+        formData.append(
+          'sharpen_strength',
+          this.params.sharpenStrength.toString()
+        );
       }
 
       try {
@@ -289,13 +304,14 @@ createApp({
 
         // 检查响应格式：后端返回 { "success": true/false, "data": {...} }
         if (!result.success) {
-          throw new Error(result.error?.message || result.message || '识别失败');
+          throw new Error(
+            result.error?.message || result.message || '识别失败'
+          );
         }
 
         // 处理响应数据
         this.processOcrResult(result.data);
         this.showToast('识别完成！', 'success');
-
       } catch (error) {
         console.error('OCR 识别失败:', error);
         this.showToast(error.message || '识别失败', 'error');
@@ -324,8 +340,8 @@ createApp({
             width: page.width,
             height: page.height,
             text: page.text,
-            processedImagePath: page.processed_image_path,  // 保存预处理图片路径
-            previewImageUrl: previewImageUrl,  // 新增：预览图片URL
+            processedImagePath: page.processed_image_path, // 保存预处理图片路径
+            previewImageUrl: previewImageUrl, // 新增：预览图片URL
             ocrResults: (page.ocr_response || []).map((result, idx) => ({
               ...result,
               id: `${page.page_number}-${idx}`,
@@ -336,7 +352,7 @@ createApp({
           };
         });
         this.fullText = this.pdfPages.map(p => p.text).join('\n\n');
-        this.filePath = data.pdf_path || '';  // 保存 PDF 路径
+        this.filePath = data.pdf_path || ''; // 保存 PDF 路径
       } else {
         // 图片结果
         this.imageWidth = data.width || this.imageWidth;
@@ -348,7 +364,7 @@ createApp({
           editedText: result.text
         }));
         this.fullText = data.text || '';
-        this.filePath = data.image_path || '';  // 保存图片路径
+        this.filePath = data.image_path || ''; // 保存图片路径
 
         // 图片模式：优先使用预处理后的图片（使用与 PDF 一致的字段名）
         if (data.processed_image_path) {
@@ -357,7 +373,6 @@ createApp({
 
           // 使用服务端预处理图片替换本地图片
           this.imageUrl = serverImageUrl;
-          console.log('使用服务端预处理图片:', serverImageUrl);
         }
         // 否则继续使用本地图片（this.imageUrl 已在 processImage 中设置）
       }
@@ -414,10 +429,10 @@ createApp({
             ocr_response: ocrResponse,
             options: {
               row_threshold_ratio: 0.5,
-              gap_threshold_ratio: 1.2,  // 降低阈值，更容易识别列结构
+              gap_threshold_ratio: 1.2, // 降低阈值，更容易识别列结构
               paragraph_spacing_ratio: 1.5,
               min_confidence: 0.3,
-              column_separator: '    '  // 4个空格
+              column_separator: '    ' // 4个空格
             }
           })
         });
@@ -458,6 +473,8 @@ createApp({
       const text = result.editedText || result.text;
       this.copyToClipboard(text);
       this.showToast('已复制此行文本', 'success');
+      const row = document.querySelector('table tr.highlight');
+      row && row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     },
 
     // 编辑文本
@@ -489,7 +506,7 @@ createApp({
         return;
       }
 
-      this.isEmbedding = true;  // 标记开始处理
+      this.isEmbedding = true; // 标记开始处理
       this.loading = true;
       this.loadingText = '正在生成PDF...';
 
@@ -498,7 +515,7 @@ createApp({
         const requestData = {
           file_path: this.filePath,
           file_type: this.isPdf ? 'pdf' : 'image',
-          apply_preprocessing: true  // 默认使用预处理后的图片（去水印/纠偏）
+          apply_preprocessing: true // 默认使用预处理后的图片（去水印/纠偏）
         };
 
         if (this.isPdf) {
@@ -507,7 +524,7 @@ createApp({
             page_number: page.pageNumber,
             width: page.width,
             height: page.height,
-            processed_image_path: page.processedImagePath,  // 传递预处理图片路径
+            processed_image_path: page.processedImagePath, // 传递预处理图片路径
             ocr_response: this.displayResults
               .filter(r => r.pageNumber === page.pageNumber && !r.deleted)
               .map(r => ({
@@ -563,12 +580,11 @@ createApp({
         window.URL.revokeObjectURL(url);
 
         this.showToast('PDF已生成并开始下载', 'success');
-
       } catch (error) {
         console.error('生成PDF失败:', error);
         this.showToast(error.message || '生成PDF失败', 'error');
       } finally {
-        this.isEmbedding = false;  // 恢复按钮状态
+        this.isEmbedding = false; // 恢复按钮状态
         this.loading = false;
       }
     },
@@ -610,7 +626,7 @@ createApp({
         const response = await fetch('/api/logs', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`
+            Authorization: `Bearer ${this.apiKey}`
           }
         });
 
@@ -637,7 +653,7 @@ createApp({
         const response = await fetch('/api/logs', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`
+            Authorization: `Bearer ${this.apiKey}`
           }
         });
 
@@ -715,7 +731,12 @@ createApp({
     },
 
     showToast(message, type = 'info') {
-      const backgroundColor = type === 'success' ? '#67c23a' : type === 'error' ? '#f56c6c' : '#409EFF';
+      const backgroundColor =
+        type === 'success'
+          ? '#67c23a'
+          : type === 'error'
+            ? '#f56c6c'
+            : '#409EFF';
       Toastify({
         text: message,
         duration: 3000,
