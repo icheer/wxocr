@@ -22,6 +22,7 @@ createApp({
       currentFile: null,
       filePath: '',  // 保存临时文件路径（image_path 或 pdf_path）
       isEmbedding: false,  // 正在嵌入PDF的标记
+      isFormatting: false,  // 正在智能排版的标记
       // 日志查看相关
       showLogsModal: false,
       logsContent: '',
@@ -370,6 +371,88 @@ createApp({
     copyAllText() {
       this.copyToClipboard(this.dynamicFullText);
       this.showToast('已复制全部文本', 'success');
+    },
+
+    // 智能排版并复制
+    async smartFormatAndCopy() {
+      if (this.isFormatting) {
+        this.showToast('正在处理中，请稍候...', 'info');
+        return;
+      }
+
+      // 获取当前的 OCR 结果（包含用户编辑）
+      const ocrResponse = this.displayResults
+        .filter(r => !r.deleted)
+        .map(r => ({
+          text: r.editedText || r.text,
+          rate: r.rate,
+          left: r.left,
+          top: r.top,
+          right: r.right,
+          bottom: r.bottom
+        }));
+
+      if (ocrResponse.length === 0) {
+        this.showToast('没有可用的文本块', 'warning');
+        return;
+      }
+
+      this.isFormatting = true;
+      this.loading = true;
+      this.loadingText = '正在智能排版...';
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.apiKey) {
+          headers['Authorization'] = `Bearer ${this.apiKey}`;
+        }
+
+        const response = await fetch('/api/smart-format', {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            ocr_response: ocrResponse,
+            options: {
+              row_threshold_ratio: 0.5,
+              gap_threshold_ratio: 2.0,
+              paragraph_spacing_ratio: 1.5,
+              min_confidence: 0.3,
+              column_separator: '\t'
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || '智能排版失败');
+        }
+
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          const formattedText = result.data.formatted_text;
+          const metadata = result.data.metadata;
+
+          // 复制格式化后的文本
+          this.copyToClipboard(formattedText);
+
+          // 显示元数据信息
+          this.showToast(
+            `已复制智能排版文本 (${metadata.row_count}行, ${metadata.column_count}列, ${metadata.paragraph_count}段)`,
+            'success'
+          );
+
+          console.log('智能排版元数据:', metadata);
+        } else {
+          throw new Error('智能排版返回数据格式错误');
+        }
+      } catch (error) {
+        console.error('智能排版失败:', error);
+        this.showToast(`智能排版失败: ${error.message}`, 'error');
+      } finally {
+        this.isFormatting = false;
+        this.loading = false;
+      }
     },
 
     // 复制单行文本

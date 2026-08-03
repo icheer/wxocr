@@ -1270,6 +1270,9 @@
                     <button class="copy-btn" @click="copyAllText">
                       复制全部
                     </button>
+                    <button class="copy-btn" @click="smartFormatAndCopy" :disabled="isFormatting" style="margin-left: 8px;">
+                      {{ isFormatting ? '排版中...' : '智能排版并复制' }}
+                    </button>
                     <pre class="text-content">
 {{ dynamicFullText || '暂无识别结果' }}</pre
                     >

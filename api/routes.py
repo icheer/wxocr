@@ -918,3 +918,76 @@ def get_temp_file(filename):
     except Exception as e:
         logger.error(f"获取临时文件失败: {filename}, 错误: {str(e)}", exc_info=True)
         return error_response(500, 'FILE_ACCESS_FAILED', f'文件访问失败: {str(e)}')
+
+
+@api_bp.route('/smart-format', methods=['POST'])
+@require_api_key
+def smart_format():
+    """
+    智能文本排版接口
+
+    将 OCR 识别结果智能排版为易读的文本格式
+
+    请求体（JSON）:
+    {
+        "ocr_response": [...],  // OCR 识别结果数组（必填）
+        "options": {            // 可选参数
+            "row_threshold_ratio": 0.5,
+            "gap_threshold_ratio": 2.0,
+            "paragraph_spacing_ratio": 1.5,
+            "min_confidence": 0.3,
+            "column_separator": "\t"
+        }
+    }
+
+    Returns:
+        JSON 响应，包含格式化后的文本和元数据
+    """
+    from services.text_formatter import format_ocr_text
+
+    try:
+        data = request.get_json()
+
+        if not data:
+            return error_response(400, 'INVALID_REQUEST', '请求体不能为空')
+
+        ocr_response = data.get('ocr_response')
+        if not ocr_response:
+            return error_response(400, 'MISSING_OCR_RESPONSE', '缺少 ocr_response 参数')
+
+        if not isinstance(ocr_response, list):
+            return error_response(400, 'INVALID_OCR_RESPONSE', 'ocr_response 必须是数组')
+
+        # 获取可选参数
+        options = data.get('options', {})
+
+        row_threshold_ratio = options.get('row_threshold_ratio', 0.5)
+        gap_threshold_ratio = options.get('gap_threshold_ratio', 2.0)
+        paragraph_spacing_ratio = options.get('paragraph_spacing_ratio', 1.5)
+        min_confidence = options.get('min_confidence', 0.3)
+        column_separator = options.get('column_separator', '\t')
+
+        # 执行智能排版
+        logger.info(f"开始智能排版，文本块数量: {len(ocr_response)}")
+
+        result = format_ocr_text(
+            ocr_response=ocr_response,
+            row_threshold_ratio=row_threshold_ratio,
+            gap_threshold_ratio=gap_threshold_ratio,
+            paragraph_spacing_ratio=paragraph_spacing_ratio,
+            min_confidence=min_confidence,
+            column_separator=column_separator
+        )
+
+        logger.info(f"智能排版完成 - 行数: {result['metadata']['row_count']}, "
+                   f"列数: {result['metadata']['column_count']}, "
+                   f"段落数: {result['metadata']['paragraph_count']}")
+
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+
+    except Exception as e:
+        logger.error(f"智能排版失败: {str(e)}", exc_info=True)
+        return error_response(500, 'FORMAT_FAILED', f'智能排版失败: {str(e)}')
