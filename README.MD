@@ -32,7 +32,7 @@
 ## ⚙️ 系统要求
 
 - **CPU：** 需要支持 AVX2 指令集（微信 OCR 核心依赖）
-  - 检查方法：`cat /proc/cpuinfo | grep avx2`（有输出即支持）
+  - 检查方法：`cat /proc/cpuinfo | grep avx2` （有输出即支持）
   - 大多数 2013 年后的 Intel/AMD CPU 都支持 AVX2
 - **内存：** 最低 2GB RAM
 - **系统：** Linux/Windows/macOS（Docker 部署跨平台支持）
