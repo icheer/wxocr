@@ -1000,7 +1000,7 @@
               </div>
               <p class="param-description">自动检测并移除图片中的水印</p>
             </div>
-            <div class="param-group">
+            <div v-if="params.removeWatermark" class="param-group">
               <label class="param-label">水印颜色</label>
               <div class="color-input-wrapper">
                 <input
@@ -1020,7 +1020,7 @@
               </div>
               <p class="param-description">指定要移除的水印颜色（十六进制）</p>
             </div>
-            <div class="param-group">
+            <div v-if="params.removeWatermark" class="param-group">
               <label class="param-label"
                 >颜色容差 ({{ params.colorTolerance }})</label
               >
