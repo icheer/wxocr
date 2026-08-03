@@ -275,9 +275,15 @@ def preprocess_image(image: np.ndarray, config: PreprocessingConfig) -> Preproce
     # 1. 水印去除
     if config.remove_watermark:
         try:
+            # 转换颜色格式：#RRGGBB -> (R, G, B)
+            watermark_rgb = None
+            if config.watermark_color:
+                color_hex = config.watermark_color.lstrip('#')
+                watermark_rgb = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+
             result.image = remove_watermark(
                 result.image,
-                color=config.watermark_color,
+                watermark_color=watermark_rgb,
                 tolerance=config.watermark_tolerance
             )
             result.applied_operations.append('watermark_removal')
