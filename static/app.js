@@ -428,7 +428,7 @@ createApp({
           body: JSON.stringify({
             ocr_response: ocrResponse,
             options: {
-              row_threshold_ratio: 0.5,
+              row_threshold_ratio: 0.75,
               gap_threshold_ratio: 1.2, // 降低阈值，更容易识别列结构
               paragraph_spacing_ratio: 1.5,
               min_confidence: 0.3,
