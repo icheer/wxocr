@@ -1267,10 +1267,18 @@
               >
                 <div class="text-section">
                   <div class="text-display">
-                    <button class="copy-btn" @click="copyAllText">
+                    <button
+                      class="copy-btn"
+                      @click="copyAllText"
+                      style="margin-left: 8px"
+                    >
                       复制全部
                     </button>
-                    <button class="copy-btn" @click="smartFormatAndCopy" :disabled="isFormatting" style="margin-left: 8px;">
+                    <button
+                      class="copy-btn"
+                      @click="smartFormatAndCopy"
+                      :disabled="isFormatting"
+                    >
                       {{ isFormatting ? '排版中...' : '智能排版并复制' }}
                     </button>
                     <pre class="text-content">
