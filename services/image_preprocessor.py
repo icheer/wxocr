@@ -275,11 +275,18 @@ def preprocess_image(image: np.ndarray, config: PreprocessingConfig) -> Preproce
     # 1. 水印去除
     if config.remove_watermark:
         try:
-            # 转换颜色格式：#RRGGBB -> (R, G, B)
+            # 处理颜色格式：支持字符串 "#RRGGBB" 或元组 (R, G, B)
             watermark_rgb = None
             if config.watermark_color:
-                color_hex = config.watermark_color.lstrip('#')
-                watermark_rgb = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+                if isinstance(config.watermark_color, str):
+                    # 字符串格式：#RRGGBB -> (R, G, B)
+                    color_hex = config.watermark_color.lstrip('#')
+                    watermark_rgb = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+                elif isinstance(config.watermark_color, (tuple, list)):
+                    # 已经是元组/列表格式，直接使用
+                    watermark_rgb = tuple(config.watermark_color)
+                else:
+                    logger.warning(f"不支持的水印颜色格式: {type(config.watermark_color)}")
 
             result.image = remove_watermark(
                 result.image,
@@ -289,7 +296,7 @@ def preprocess_image(image: np.ndarray, config: PreprocessingConfig) -> Preproce
             result.applied_operations.append('watermark_removal')
             logger.info("✓ 水印去除完成")
         except Exception as e:
-            logger.error(f"水印去除失败: {e}")
+            logger.error(f"水印去除失败: {e}", exc_info=True)
             result.warnings.append(f"水印去除失败: {str(e)}")
 
     # 2. 自动纠偏
